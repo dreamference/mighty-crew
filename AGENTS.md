@@ -14,7 +14,7 @@ The project guide for people and coding agents working in this repository.
 | --- | --- |
 | `specs/` | The specification, one document per area |
 | `prototype/` | The shell prototype (`session`, `session-note`, `session-board-hook`) |
-| `src/` | The `crew` binary (Rust, 2021 edition or later), once it exists |
+| `src/` | The `crew` binary (Rust, 2021 edition): `main.rs` (the command line), `config.rs`, `board.rs`, `agent.rs` (the Claude Code adapter), `util.rs`, `commands/` (one file per command) |
 | `tests/` | Integration tests: a local bare repository stands in for the board's remote, a stub for the agent |
 
 ## Commands
@@ -36,6 +36,6 @@ cargo test --locked            # the suite; offline, touches neither the network
 
 ## Conventions
 
-- Plain Rust: `clap` for the command line, `serde` with `toml` for the configuration, `std::process` for git and the agent; no async runtime for a tool that runs one command and exits.
+- Plain Rust: `clap` for the command line, `serde` with `toml` for the configuration and `serde_json` for the agent's listing and `settings.json`, `chrono` for a note's time, `anyhow` for one-line errors, `std::process` for git and the agent; no async runtime for a tool that runs one command and exits.
 - One line per failure, on stderr, with the fix when there is one; exit codes: 0 done, 1 failed, 2 usage.
 - Measured claims only in the specification; a feature exists when its acceptance line in §9 holds.

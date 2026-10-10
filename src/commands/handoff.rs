@@ -1,6 +1,6 @@
 //! `crew handoff`: data for another role goes through a neutral folder, never its tree.
 
-use crate::board::Board;
+use crate::chat::Chat;
 use crate::config::Config;
 use crate::util;
 use anyhow::{bail, Context, Result};
@@ -52,7 +52,7 @@ pub fn run(role_name: &str, path: &str, as_role: Option<&str>) -> Result<i32> {
         .iter()
         .filter(|f| std::fs::read_to_string(f).map(|t| t.contains("/tmp/")).unwrap_or(false))
         .count();
-    let b = Board::new(&cfg)?;
+    let b = Chat::new(&cfg)?;
     let line = b.append(
         &cfg,
         &from,

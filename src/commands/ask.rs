@@ -1,6 +1,6 @@
-//! `crew ask`: post a decision for the user on the board, under `## Decisions pending`.
+//! `crew ask`: post a decision for the user on the chat, under `## Decisions pending`.
 
-use crate::board::Board;
+use crate::chat::Chat;
 use crate::config::Config;
 use crate::sections::{self, Decision};
 use crate::util;
@@ -26,13 +26,13 @@ pub fn run(question: &str, options: &[String], recommend: Option<&str>, as_role:
         }
     }
     let role = super::signer(&cfg, as_role)?;
-    let b = Board::new(&cfg)?;
+    let b = Chat::new(&cfg)?;
     let mut id = String::new();
     let q = question.clone();
     let opts = options.clone();
     let rec = recommend.map(str::to_string);
     let r = role.clone();
-    let ticked = b.write(&cfg, &format!("board: ask {role}"), |doc| {
+    let ticked = b.write(&cfg, &format!("chat: ask {role}"), |doc| {
         id = doc.next_id();
         doc.pending.push(Decision {
             id: id.clone(),
@@ -66,7 +66,7 @@ pub fn run(question: &str, options: &[String], recommend: Option<&str>, as_role:
     Ok(0)
 }
 
-pub fn link_suffix(b: &Board) -> String {
+pub fn link_suffix(b: &Chat) -> String {
     match sections::forge_link(&b.repo, &b.branch, &b.path) {
         Some(l) => format!(": {l}"),
         None => String::new(),

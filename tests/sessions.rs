@@ -160,7 +160,7 @@ fn status_survives_a_broken_listing() {
 }
 
 #[test]
-fn msg_reports_refusals_and_relay_failures_with_the_twin_on_the_board() {
+fn msg_reports_refusals_and_relay_failures_with_the_twin_on_the_chat() {
     let e = Env::new();
     e.sessions(&session_json(&e.product, "product", "idle"));
     fs::write(e.root.join("p.json"), "{\"result\":\"REFUSED: dropped at the inbox\"}").unwrap();
@@ -170,7 +170,7 @@ fn msg_reports_refusals_and_relay_failures_with_the_twin_on_the_board() {
         .assert()
         .code(1)
         .stderr(predicates::str::contains("refused the message"));
-    assert!(e.board_on_remote().ends_with(" engine: to product: one"));
+    assert!(e.chat_on_remote().ends_with(" engine: to product: one"));
 
     fs::write(e.root.join("p.json"), "{\"result\":\"I sent it, I think\"}").unwrap();
     e.crew()
@@ -233,10 +233,10 @@ fn msg_from_outside_a_tree_is_signed_user_and_reaches_a_background_session() {
 }
 
 #[test]
-fn msg_fails_closed_when_the_board_is_unreachable() {
+fn msg_fails_closed_when_the_chat_is_unreachable() {
     let e = Env::new();
     e.sessions(&session_json(&e.product, "product", "idle"));
-    e.crew().arg("board").assert().success();
+    e.crew().arg("chat").assert().success();
     fs::rename(&e.bare, e.root.join("away.git")).unwrap();
     e.crew()
         .current_dir(&e.engine)

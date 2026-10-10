@@ -2,9 +2,10 @@
 
 mod activity;
 mod agent;
-mod board;
+mod chat;
 mod commands;
 mod config;
+mod display;
 mod sections;
 mod util;
 
@@ -14,7 +15,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "crew",
     version,
-    about = "A crew of coding-agent sessions on one codebase: one role per working tree, a shared board, messages between roles.",
+    about = "A crew of coding-agent sessions on one codebase: one role per working tree, a shared chat, messages between roles.",
     after_help = "Configuration: ~/.config/mighty-crew/crew.toml (MIGHTY_CREW_CONFIG overrides). Every command exits 1 on failure with one line saying why."
 )]
 struct Cli {
@@ -36,15 +37,15 @@ enum Cmd {
     },
     /// The same, in a new terminal window (needs a display)
     Open { role: String },
-    /// Print the board's status lines (default: the last 12)
-    Board {
+    /// Print the chat's status lines (default: the last 12)
+    Chat {
         /// How many lines
         #[arg(short = 'n', long = "lines", default_value_t = 12)]
         n: usize,
         /// All of them
         #[arg(long)]
         all: bool,
-        /// Rewrite the board's role table from the configuration
+        /// Rewrite the chat's role table from the configuration
         #[arg(long)]
         sync_roles: bool,
         /// Print the last fetched copy without fetching
@@ -63,7 +64,7 @@ enum Cmd {
         #[arg(long)]
         pending: bool,
     },
-    /// Post a decision for the user on the board (`## Decisions pending`)
+    /// Post a decision for the user on the chat (`## Decisions pending`)
     Ask {
         question: String,
         /// The options, comma-separated (repeatable)
@@ -98,7 +99,7 @@ enum Cmd {
         #[arg(long, value_name = "MODE")]
         mode: Option<String>,
     },
-    /// Declare a shared resource and its rules on the board (no arguments: list them)
+    /// Declare a shared resource and its rules on the chat (no arguments: list them)
     Resource {
         name: Option<String>,
         #[arg(trailing_var_arg = true)]
@@ -135,9 +136,9 @@ enum Cmd {
     },
     /// Roles, trees, branches, heads, running or not, last note
     Status,
-    /// Check the configuration, the trees, the board clone, the hook
+    /// Check the configuration, the trees, the chat clone, the hook
     Doctor,
-    /// Install the SessionStart hook that prints the board
+    /// Install the SessionStart hook that prints the chat
     InstallHook,
     /// Remove that hook
     RemoveHook,
@@ -147,7 +148,7 @@ enum Cmd {
         #[arg(long)]
         force: bool,
     },
-    /// What the SessionStart hook runs: prints the board when started in a role's tree
+    /// What the SessionStart hook runs: prints the chat when started in a role's tree
     #[command(hide = true)]
     Hook,
 }
@@ -157,7 +158,7 @@ fn main() {
     let result = match cli.command {
         Cmd::Start { role, new, create } => commands::start::run(&role, new, create),
         Cmd::Open { role } => commands::open::run(&role),
-        Cmd::Board {
+        Cmd::Chat {
             n,
             all,
             sync_roles,
@@ -168,7 +169,7 @@ fn main() {
             pending,
         } => {
             let tag = if decisions { Some("decision".to_string()) } else { tag };
-            commands::board::run(n, all, sync_roles, cached, pending, for_role.as_deref(), tag.as_deref())
+            commands::chat::run(n, all, sync_roles, cached, pending, for_role.as_deref(), tag.as_deref())
         }
         Cmd::Ask {
             question,

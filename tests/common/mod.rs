@@ -1,4 +1,4 @@
-//! The offline harness: a bare repository stands in for the board's remote, a shell script for the
+//! The offline harness: a bare repository stands in for the chat's remote, a shell script for the
 //! agent, and every path the product reads points into the test's own directory.
 #![allow(dead_code)]
 
@@ -65,7 +65,7 @@ if [ \"$1\" = -p ]; then\n\
 fi\n\
 echo \"stub agent started\"\n";
 
-pub const BOARD_SEED: &str = "# test: the crew's board\n\nhow to append\n\n| role | working tree | owns |\n| --- | --- | --- |\n\n## Status\n\n- 2026-10-10 09:00 operations: seed line\n";
+pub const CHAT_SEED: &str = "# test: the crew's chat\n\nhow to append\n\n| role | working tree | owns |\n| --- | --- | --- |\n\n## Status\n\n- 2026-10-10 09:00 operations: seed line\n";
 
 impl Env {
     pub fn new() -> Env {
@@ -75,16 +75,16 @@ impl Env {
         fs::create_dir_all(home.join(".config/mighty-crew")).unwrap();
         fs::create_dir_all(home.join(".claude")).unwrap();
 
-        // The board's remote: a bare repository seeded with one board file.
-        let bare = root.join("board.git");
+        // The chat's remote: a bare repository seeded with one chat file.
+        let bare = root.join("chat.git");
         fs::create_dir_all(&bare).unwrap();
         git(&bare, &["init", "-q", "--bare", "-b", "main"]);
         let seed = root.join("seed");
         init_repo(&seed);
         fs::create_dir_all(seed.join("docs/dev")).unwrap();
-        fs::write(seed.join("docs/dev/sessions.md"), BOARD_SEED).unwrap();
+        fs::write(seed.join("docs/dev/sessions.md"), CHAT_SEED).unwrap();
         git(&seed, &["add", "."]);
-        git(&seed, &["commit", "-q", "-m", "board"]);
+        git(&seed, &["commit", "-q", "-m", "chat"]);
         git(&seed, &["remote", "add", "origin", bare.to_str().unwrap()]);
         git(&seed, &["push", "-q", "origin", "main"]);
 
@@ -129,7 +129,7 @@ impl Env {
 
     pub fn default_config(&self) -> String {
         format!(
-            "[crew]\nname = \"test\"\n\n[board]\nrepo = {bare:?}\npath = \"docs/dev/sessions.md\"\nbranch = \"main\"\nidentity = {{ name = \"board-bot\", email = \"bot@example.org\" }}\n\n\
+            "[crew]\nname = \"test\"\n\n[chat]\nrepo = {bare:?}\npath = \"docs/dev/sessions.md\"\nbranch = \"main\"\nidentity = {{ name = \"chat-bot\", email = \"bot@example.org\" }}\n\n\
              [agent]\ncommand = {stub:?}\npermission_mode = \"bypassPermissions\"\n\n\
              [roles.operations]\ntree = {ops:?}\nowns = \"the machine\"\n\n\
              [roles.product]\ntree = {product:?}\nworktree_of = {ops:?}\nbranch = \"work/product\"\nowns = \"the code\"\n\n\
@@ -187,7 +187,7 @@ impl Env {
         fs::write(self.root.join("agents.json"), json).unwrap();
     }
 
-    pub fn board_on_remote(&self) -> String {
+    pub fn chat_on_remote(&self) -> String {
         git(&self.bare, &["show", "main:docs/dev/sessions.md"])
     }
 
@@ -227,9 +227,9 @@ impl Env {
         ]
     }
 
-    /// The status lines of the board as the remote holds it.
+    /// The status lines of the chat as the remote holds it.
     pub fn remote_lines(&self) -> Vec<String> {
-        let text = self.board_on_remote();
+        let text = self.chat_on_remote();
         let i = text
             .find("## Status")
             .map(|i| i + "## Status".len())
@@ -241,8 +241,8 @@ impl Env {
             .collect()
     }
 
-    /// Write a board file straight onto the remote, as a hand edit would.
-    pub fn write_remote_board(&self, content: &str) {
+    /// Write a chat file straight onto the remote, as a hand edit would.
+    pub fn write_remote_chat(&self, content: &str) {
         let w = self.root.join("hand");
         if !w.exists() {
             git(

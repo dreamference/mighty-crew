@@ -45,10 +45,10 @@ fn doctor_exit_codes_and_the_agent_and_terminal_checks() {
 fn doctor_warns_on_out_of_order_notes_without_failing() {
     let e = Env::new();
     e.crew().arg("install-hook").assert().success();
-    e.write_remote_board(&(BOARD_SEED.to_string() + "- 2026-10-10 08:00 engine: typed by hand\n"));
+    e.write_remote_chat(&(CHAT_SEED.to_string() + "- 2026-10-10 08:00 engine: typed by hand\n"));
     e.crew().arg("doctor").assert().code(0).stdout(
         predicates::str::contains(
-            "warn board: the line \"- 2026-10-10 08:00 engine: typed by…\" is dated before the one above it",
+            "warn chat: the line \"- 2026-10-10 08:00 engine: typed by…\" is dated before the one above it",
         )
         .and(predicates::str::contains("all good")),
     );
@@ -84,7 +84,7 @@ fn hook_is_silent_without_configuration_and_honest_about_a_stale_copy() {
         .success()
         .stdout(predicates::str::is_empty());
 
-    e.crew().arg("board").assert().success();
+    e.crew().arg("chat").assert().success();
     fs::rename(&e.bare, e.root.join("away.git")).unwrap();
     e.crew().current_dir(&e.engine).arg("hook").assert().success().stdout(
         predicates::str::contains("shown from the last fetched copy").and(predicates::str::contains("seed line")),
@@ -174,7 +174,7 @@ fn init_takes_identity_and_default_branch_from_the_repository() {
     git(&e.engine, &["remote", "add", "origin", e.bare.to_str().unwrap()]);
     git(&e.engine, &["fetch", "-q", "origin"]);
     git(&e.engine, &["remote", "set-head", "origin", "main"]);
-    git(&e.engine, &["config", "user.name", "Board Bot"]);
+    git(&e.engine, &["config", "user.name", "Chat Bot"]);
     git(&e.engine, &["config", "user.email", "bot@example.org"]);
     e.crew()
         .env("MIGHTY_CREW_CONFIG", &fresh)
@@ -184,7 +184,7 @@ fn init_takes_identity_and_default_branch_from_the_repository() {
         .success();
     let text = fs::read_to_string(&fresh).unwrap();
     assert!(
-        text.contains("identity = { name = \"Board Bot\", email = \"bot@example.org\" }"),
+        text.contains("identity = { name = \"Chat Bot\", email = \"bot@example.org\" }"),
         "{text}"
     );
     assert!(
@@ -201,7 +201,7 @@ fn init_takes_identity_and_default_branch_from_the_repository() {
         .assert()
         .success()
         .stdout(predicates::str::contains("engine"));
-    // Without an origin remote there is no board to point at.
+    // Without an origin remote there is no chat to point at.
     e.crew()
         .env("MIGHTY_CREW_CONFIG", e.root.join("other.toml"))
         .current_dir(&e.ops)

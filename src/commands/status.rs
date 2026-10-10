@@ -1,6 +1,6 @@
 use crate::activity;
 use crate::agent;
-use crate::board::{self, Board};
+use crate::chat::{self, Chat};
 use crate::config::Config;
 use crate::util::{self, git, GIT_LIMIT};
 use anyhow::Result;
@@ -8,11 +8,11 @@ use std::collections::HashMap;
 
 pub fn run() -> Result<i32> {
     let cfg = Config::load()?;
-    let b = Board::new(&cfg)?;
-    let board_text = match b.refresh(GIT_LIMIT) {
+    let b = Chat::new(&cfg)?;
+    let chat_text = match b.refresh(GIT_LIMIT) {
         Ok(()) => b.read(),
         Err(e) => {
-            eprintln!("(board: {e}; using the last copy)");
+            eprintln!("(chat: {e}; using the last copy)");
             b.read()
         }
     };
@@ -51,7 +51,7 @@ pub fn run() -> Result<i32> {
             Some(s) => format!("{} ({})", s.describe(), s.name.as_deref().unwrap_or("unnamed")),
             None => "not running".into(),
         };
-        let last = board::last_note(&board_text, &role.name).and_then(board::parse_note);
+        let last = chat::last_note(&chat_text, &role.name).and_then(chat::parse_note);
         let note = last
             .map(|(when, _, text)| format!("{when} {}", util::first_words(text, 8)))
             .unwrap_or_else(|| "-".into());
@@ -99,7 +99,7 @@ pub fn run() -> Result<i32> {
     }
     if !doc.pending.is_empty() {
         println!(
-            "{} decision(s) pending: `crew board --pending`{}",
+            "{} decision(s) pending: `crew chat --pending`{}",
             doc.pending.len(),
             super::ask::link_suffix(&b)
         );

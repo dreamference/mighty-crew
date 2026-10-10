@@ -1,4 +1,4 @@
-//! `crew now`: what a role is doing right now, on this machine, outside the board.
+//! `crew now`: what a role is doing right now, on this machine, outside the chat.
 
 use crate::config::Config;
 use crate::util;

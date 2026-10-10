@@ -1,13 +1,13 @@
-//! `crew resource`: a shared resource and the rules for using it, on the board.
+//! `crew resource`: a shared resource and the rules for using it, on the chat.
 
-use crate::board::Board;
+use crate::chat::Chat;
 use crate::config::Config;
 use crate::util;
 use anyhow::{bail, Result};
 
 pub fn run(name: Option<&str>, rules: &str, as_role: Option<&str>) -> Result<i32> {
     let cfg = Config::load()?;
-    let b = Board::new(&cfg)?;
+    let b = Chat::new(&cfg)?;
     let Some(name) = name else {
         b.refresh(util::GIT_LIMIT)?;
         let doc = b.doc(&cfg);
@@ -28,7 +28,7 @@ pub fn run(name: Option<&str>, rules: &str, as_role: Option<&str>) -> Result<i32
     let n = name.clone();
     let o = owner.clone();
     let r = rules.clone();
-    let written = b.write(&cfg, &format!("board: resource {name}"), move |doc| {
+    let written = b.write(&cfg, &format!("chat: resource {name}"), move |doc| {
         Ok(doc.upsert_resource(&n, &o, &r))
     })?;
     match written {

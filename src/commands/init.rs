@@ -13,13 +13,13 @@ pub fn run(force: bool) -> Result<i32> {
     let here = std::env::current_dir()?;
     let Ok(top) = git(&here, &["rev-parse", "--show-toplevel"]) else {
         bail!(
-            "{} is not inside a git repository; run `crew init` in the repository that will hold the board",
+            "{} is not inside a git repository; run `crew init` in the repository that will hold the chat",
             util::display_path(&here)
         );
     };
     let top = util::normalize(std::path::Path::new(&top));
     let Ok(url) = git(&top, &["remote", "get-url", "origin"]) else {
-        bail!("the repository has no `origin` remote; the board needs one every role can push to");
+        bail!("the repository has no `origin` remote; the chat needs one every role can push to");
     };
     let branch = super::start::default_remote_branch(&top)
         .map(|b| b.trim_start_matches("origin/").to_string())

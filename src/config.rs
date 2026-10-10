@@ -22,7 +22,7 @@ pub struct CrewSection {
 #[serde(deny_unknown_fields)]
 pub struct BoardSection {
     pub repo: String,
-    #[serde(default = "default_board_path")]
+    #[serde(default = "default_chat_path")]
     pub path: String,
     #[serde(default = "default_branch")]
     pub branch: String,
@@ -58,8 +58,8 @@ pub struct TerminalSection {
     pub commands: Vec<String>,
 }
 
-fn default_board_path() -> String {
-    "docs/dev/sessions.md".into()
+fn default_chat_path() -> String {
+    "docs/dev/chat.md".into()
 }
 fn default_branch() -> String {
     "main".into()
@@ -92,7 +92,7 @@ struct RawRole {
 #[serde(deny_unknown_fields)]
 struct Raw {
     crew: CrewSection,
-    board: BoardSection,
+    chat: BoardSection,
     #[serde(default)]
     agent: AgentSection,
     #[serde(default)]
@@ -122,7 +122,7 @@ pub struct Role {
 pub struct Config {
     pub path: PathBuf,
     pub crew: CrewSection,
-    pub board: BoardSection,
+    pub chat: BoardSection,
     pub agent: AgentSection,
     pub terminal: TerminalSection,
     pub roles: Vec<Role>,
@@ -208,7 +208,7 @@ impl Config {
         Ok(Config {
             path: path.to_path_buf(),
             crew: raw.crew,
-            board: raw.board,
+            chat: raw.chat,
             agent: raw.agent,
             terminal: raw.terminal,
             roles,
@@ -220,6 +220,11 @@ impl Config {
             .iter()
             .find(|r| r.name == name)
             .ok_or_else(|| anyhow::anyhow!("no role named {name}; the roles are: {}", self.role_names().join(", ")))
+    }
+
+    /// The role names, owned, in configuration order (the display colours follow this order).
+    pub fn role_name_list(&self) -> Vec<String> {
+        self.roles.iter().map(|r| r.name.clone()).collect()
     }
 
     pub fn role_names(&self) -> Vec<&str> {
@@ -244,7 +249,7 @@ impl Config {
     }
 }
 
-/// A configuration for `crew init`: one role, the current repository as the board's.
+/// A configuration for `crew init`: one role, the current repository as the chat's.
 pub fn render_initial(
     crew_name: &str,
     repo_url: &str,
@@ -255,7 +260,7 @@ pub fn render_initial(
 ) -> String {
     let identity = match identity {
         Some(i) => format!("identity = {{ name = {:?}, email = {:?} }}\n", i.name, i.email),
-        None => "# identity = { name = \"crew\", email = \"crew@example.org\" }   # the board's commit author; git's own identity when absent\n".to_string(),
+        None => "# identity = { name = \"crew\", email = \"crew@example.org\" }   # the chat's commit author; git's own identity when absent\n".to_string(),
     };
     format!(
         "# Mighty Crew configuration. Edit by hand; `crew doctor` checks it.\n\
@@ -263,9 +268,9 @@ pub fn render_initial(
          [crew]\n\
          name = {crew_name:?}\n\
          \n\
-         [board]\n\
+         [chat]\n\
          repo = {repo_url:?}\n\
-         path = \"docs/dev/sessions.md\"\n\
+         path = \"docs/dev/chat.md\"\n\
          branch = {branch:?}\n\
          {identity}\
          \n\
@@ -292,19 +297,19 @@ pub fn render_initial(
 mod tests {
     use super::*;
 
-    const MIN: &str = "[crew]\nname = \"c\"\n[board]\nrepo = \"r\"\n[roles.a]\ntree = \"/x/a\"\n[roles.b]\ntree = \"/x/a/b\"\nowns = \"inner\"\n";
+    const MIN: &str = "[crew]\nname = \"c\"\n[chat]\nrepo = \"r\"\n[roles.a]\ntree = \"/x/a\"\n[roles.b]\ntree = \"/x/a/b\"\nowns = \"inner\"\n";
 
     #[test]
     fn defaults_and_order() {
         let c = Config::parse(MIN, Path::new("/cfg")).unwrap();
-        assert_eq!(c.board.path, "docs/dev/sessions.md");
-        assert_eq!(c.board.branch, "main");
+        assert_eq!(c.chat.path, "docs/dev/chat.md");
+        assert_eq!(c.chat.branch, "main");
         assert_eq!(c.agent.command, "claude");
         assert_eq!(c.agent.permission_mode, "bypassPermissions");
         assert_eq!(c.agent.msg_model, "haiku");
         assert_eq!(c.role_names(), vec!["a", "b"]);
         assert!(c.off_class_roles().is_empty());
-        assert!(c.board.identity.is_none());
+        assert!(c.chat.identity.is_none());
     }
 
     #[test]
@@ -324,11 +329,11 @@ mod tests {
                 .contains("share the working tree")
         );
         assert!(err(&MIN.replace("[roles.b]", "[roles.B]")).contains("must be lowercase"));
-        assert!(err("[crew]\nname = \"c\"\n[board]\nrepo = \"r\"\n[roles]\n").contains("no roles"));
+        assert!(err("[crew]\nname = \"c\"\n[chat]\nrepo = \"r\"\n[roles]\n").contains("no roles"));
         assert!(err(&(MIN.to_string()
             + "[roles.d]\ntree = \"/d\"\ndispatcher = true\n[roles.e]\ntree = \"/e\"\ndispatcher = true\n"))
         .contains("at most one role is the dispatcher"));
-        assert!(err("[board]\nrepo = \"r\"\n[roles.a]\ntree = \"/a\"\n").contains("not a valid configuration"));
+        assert!(err("[chat]\nrepo = \"r\"\n[roles.a]\ntree = \"/a\"\n").contains("not a valid configuration"));
     }
 
     #[test]
@@ -346,7 +351,7 @@ mod tests {
         );
         let c = Config::parse(&text, Path::new("/cfg")).unwrap();
         assert_eq!(c.crew.name, "mycrew");
-        assert_eq!(c.board.identity.as_ref().unwrap().name, "n");
+        assert_eq!(c.chat.identity.as_ref().unwrap().name, "n");
         assert_eq!(c.roles[0].name, "mycrew");
         assert!(Config::parse(&render_initial("a", "b", "c", None, "a", "/a"), Path::new("/cfg")).is_ok());
     }

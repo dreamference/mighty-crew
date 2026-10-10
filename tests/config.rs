@@ -23,7 +23,7 @@ fn xdg_config_home_is_used_without_the_override() {
     // The default path under XDG_CONFIG_HOME is where the harness wrote the file.
     e.crew()
         .env_remove("MIGHTY_CREW_CONFIG")
-        .arg("board")
+        .arg("chat")
         .assert()
         .success()
         .stdout(predicates::str::contains("seed line"));
@@ -31,7 +31,7 @@ fn xdg_config_home_is_used_without_the_override() {
     e.crew()
         .env_remove("MIGHTY_CREW_CONFIG")
         .env_remove("XDG_CONFIG_HOME")
-        .arg("board")
+        .arg("chat")
         .assert()
         .success()
         .stdout(predicates::str::contains("seed line"));

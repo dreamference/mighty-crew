@@ -34,31 +34,31 @@ fn note_is_written_as_the_role_of_the_current_directory() {
         .stdout(
             predicates::str::is_match(r"^- \d{4}-\d{2}-\d{2} \d{2}:\d{2} product: release branch prepared\n$").unwrap(),
         );
-    let board = e.board_on_remote();
-    assert!(board.ends_with("product: release branch prepared"), "{board}");
+    let chat = e.chat_on_remote();
+    assert!(chat.ends_with("product: release branch prepared"), "{chat}");
     assert_eq!(
         git(&e.bare, &["log", "-1", "--format=%s %an <%ae>", "main"]),
-        "board: product board-bot <bot@example.org>"
+        "chat: product chat-bot <bot@example.org>"
     );
     // The role's own tree was not touched.
     assert_eq!(git(&e.product, &["status", "--porcelain"]), "");
     // And the note is readable from any role.
     e.crew()
         .current_dir(&e.engine)
-        .args(["board", "-n", "1"])
+        .args(["chat", "-n", "1"])
         .assert()
         .success()
-        .stdout(predicates::str::ends_with("product: release branch prepared\n"));
+        .stdout(predicates::str::ends_with("<product> release branch prepared\n"));
     e.crew()
-        .args(["board", "--all"])
+        .args(["chat", "--all"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("operations: seed line"));
+        .stdout(predicates::str::contains("<operations> seed line"));
     e.crew()
-        .args(["board", "--for", "product"])
+        .args(["chat", "--for", "product"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("product: release").and(predicates::str::contains("seed line").not()));
+        .stdout(predicates::str::contains("<product> release").and(predicates::str::contains("seed line").not()));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn two_roles_with_stale_clones_both_land_their_notes() {
     let other_cache = e.root.join("cache2");
     e.crew()
         .env("XDG_CACHE_HOME", &other_cache)
-        .args(["board"])
+        .args(["chat"])
         .assert()
         .success();
     e.crew().args(["note", "--as", "engine", "first"]).assert().success();
@@ -92,15 +92,15 @@ fn two_roles_with_stale_clones_both_land_their_notes() {
         .args(["note", "--as", "product", "second"])
         .assert()
         .success();
-    let board = e.board_on_remote();
+    let chat = e.chat_on_remote();
     assert!(
-        board.contains(" engine: first\n") && board.ends_with(" product: second"),
-        "{board}"
+        chat.contains(" engine: first\n") && chat.ends_with(" product: second"),
+        "{chat}"
     );
 }
 
 #[test]
-fn first_note_on_an_empty_remote_creates_the_board() {
+fn first_note_on_an_empty_remote_creates_the_chat() {
     let e = Env::new();
     let empty = e.root.join("empty.git");
     fs::create_dir_all(&empty).unwrap();
@@ -110,16 +110,16 @@ fn first_note_on_an_empty_remote_creates_the_board() {
             .replace(e.bare.to_str().unwrap(), empty.to_str().unwrap()),
     );
     e.crew()
-        .args(["board"])
+        .args(["chat"])
         .assert()
         .success()
         .stdout(predicates::str::contains("does not exist yet"));
     e.crew().args(["note", "--as", "engine", "born"]).assert().success();
-    let board = git(&empty, &["show", "main:docs/dev/sessions.md"]);
-    assert!(board.starts_with("# test: the crew's board"), "{board}");
+    let chat = git(&empty, &["show", "main:docs/dev/sessions.md"]);
+    assert!(chat.starts_with("# test: the crew's chat"), "{chat}");
     assert!(
-        board.contains("| engine | `") && board.contains("## Status") && board.ends_with(" engine: born"),
-        "{board}"
+        chat.contains("| engine | `") && chat.contains("## Status") && chat.ends_with(" engine: born"),
+        "{chat}"
     );
 }
 
@@ -237,7 +237,7 @@ fn hook_install_remove_and_session_start() {
         "{text}"
     );
 
-    // The hook prints the board in a role's tree and nothing elsewhere.
+    // The hook prints the chat in a role's tree and nothing elsewhere.
     e.crew()
         .current_dir(&e.product)
         .arg("hook")
@@ -272,7 +272,7 @@ fn doctor_reports_each_problem_with_its_fix() {
         .success()
         .stdout(predicates::str::contains("all good"));
 
-    // A missing tree, an off-class role, a wrong hook path, a stray session, a missing board file.
+    // A missing tree, an off-class role, a wrong hook path, a stray session, a missing chat file.
     let cfg = e
         .default_config()
         .replace(e.engine.to_str().unwrap(), e.root.join("gone").to_str().unwrap())
@@ -291,7 +291,7 @@ fn doctor_reports_each_problem_with_its_fix() {
         "role engine: tree",
         "is missing",
         "role product runs in permission mode acceptEdits while the crew runs in bypassPermissions",
-        "board file docs/other.md is missing",
+        "chat file docs/other.md is missing",
         "runs `/elsewhere/crew hook`, not this binary",
         "which is no role's tree",
         "no /crew skill",
@@ -353,7 +353,7 @@ fn status_lists_every_role() {
 }
 
 #[test]
-fn msg_writes_the_board_twin_and_relays_through_the_agent() {
+fn msg_writes_the_chat_twin_and_relays_through_the_agent() {
     let e = Env::new();
     e.crew()
         .args(["msg", "product", "hello"])
@@ -391,7 +391,7 @@ fn msg_writes_the_board_twin_and_relays_through_the_agent() {
         "{args:?}"
     );
     assert!(e
-        .board_on_remote()
+        .chat_on_remote()
         .ends_with(" engine: to product: the API moved; section 7 is yours"));
 
     fs::write(e.root.join("p.json"), "{\"result\":\"HELD: held for approval\"}").unwrap();

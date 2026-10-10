@@ -1,6 +1,6 @@
 use crate::activity;
 use crate::agent;
-use crate::board::{self, Board};
+use crate::chat::{self, Chat};
 use crate::config::Config;
 use crate::util::{self, git_ok, GIT_LIMIT};
 use anyhow::Result;
@@ -136,16 +136,16 @@ pub fn run() -> Result<i32> {
         }
     }
 
-    // Board.
-    match Board::new(&cfg) {
+    // Chat.
+    match Chat::new(&cfg) {
         Ok(b) => match b.refresh(GIT_LIMIT) {
             Ok(()) => {
                 if b.exists() {
                     r.ok(&format!(
-                        "board {} on {} ({} notes)",
+                        "chat {} on {} ({} notes)",
                         b.path,
                         b.repo,
-                        board::status_lines(&b.read()).len()
+                        chat::status_lines(&b.read()).len()
                     ));
                     let content = b.read();
                     let now = chrono::Local::now();
@@ -158,8 +158,8 @@ pub fn run() -> Result<i32> {
                         if !busy {
                             continue;
                         }
-                        let last = board::last_note(&content, &role.name)
-                            .and_then(board::parse_note)
+                        let last = chat::last_note(&content, &role.name)
+                            .and_then(chat::parse_note)
                             .map(|(w, _, _)| w);
                         let a = activity::for_role(&role.name, &role.tree, last, now);
                         if activity::is_quiet(&a, QUIET_MINUTES) {
@@ -170,12 +170,12 @@ pub fn run() -> Result<i32> {
                         }
                     }
                     let mut prev = "";
-                    for l in board::status_lines(&content) {
-                        if let Some((when, _, _)) = board::parse_note(l) {
+                    for l in chat::status_lines(&content) {
+                        if let Some((when, _, _)) = chat::parse_note(l) {
                             if when < prev {
                                 r.warn(
                                     &format!(
-                                        "board: the line {:?} is dated before the one above it",
+                                        "chat: the line {:?} is dated before the one above it",
                                         util::first_words(l, 6)
                                     ),
                                     "a hand-typed time; `crew note` stamps the clock itself, and nobody rewrites another role's line",
@@ -186,17 +186,17 @@ pub fn run() -> Result<i32> {
                     }
                 } else {
                     r.fix(
-                        &format!("board file {} is missing on {}", b.path, b.repo),
-                        "the first `crew note` creates it, or `crew board --sync-roles`",
+                        &format!("chat file {} is missing on {}", b.path, b.repo),
+                        "the first `crew note` creates it, or `crew chat --sync-roles`",
                     );
                 }
             }
             Err(e) => r.fix(
-                &format!("board clone: {e:#}"),
-                "check `board.repo`, the network and your credentials",
+                &format!("chat clone: {e:#}"),
+                "check `chat.repo`, the network and your credentials",
             ),
         },
-        Err(e) => r.fix(&format!("board: {e:#}"), "check `board.repo`"),
+        Err(e) => r.fix(&format!("chat: {e:#}"), "check `chat.repo`"),
     }
 
     // Hook.
@@ -211,7 +211,7 @@ pub fn run() -> Result<i32> {
         ),
         super::hook::HookState::Absent => r.fix(
             "no SessionStart hook",
-            "run `crew install-hook` so sessions start with the board",
+            "run `crew install-hook` so sessions start with the chat",
         ),
     }
     if super::hook::skill_installed()? {

@@ -1,4 +1,4 @@
-//! The board as sections: the head (title, preamble, role table), `## Resources`,
+//! The chat as sections: the head (title, preamble, role table), `## Resources`,
 //! `## Decisions pending`, and `## Status` with the notes. Pure text in, text out.
 
 use crate::util;
@@ -36,7 +36,7 @@ pub struct Doc {
 }
 
 impl Doc {
-    /// Split a board file; a file without `## Status` gives a Doc whose head is the whole text.
+    /// Split a chat file; a file without `## Status` gives a Doc whose head is the whole text.
     pub fn parse(content: &str) -> Doc {
         let mut doc = Doc::default();
         let mut head = String::new();
@@ -99,7 +99,7 @@ impl Doc {
         }
         if !self.pending.is_empty() {
             s.push_str(PENDING);
-            s.push_str("\n\nTick one box on the forge, or run `crew answer <id> <option>`; the next board write records the choice as a `decision:` note.\n\n");
+            s.push_str("\n\nTick one box on the forge, or run `crew answer <id> <option>`; the next chat write records the choice as a `decision:` note.\n\n");
             for d in &self.pending {
                 s.push_str(&render_decision(d));
             }
@@ -123,7 +123,7 @@ impl Doc {
             }
         }
         for n in &self.notes {
-            if let Some((_, _, text)) = crate::board::parse_note(n) {
+            if let Some((_, _, text)) = crate::chat::parse_note(n) {
                 if let Some(rest) = text.strip_prefix("decision: ") {
                     if let Some(id) = rest.split_whitespace().next() {
                         if let Some(n) = id.strip_prefix('d').and_then(|n| n.parse::<u64>().ok()) {
@@ -172,7 +172,7 @@ impl Doc {
 
 /// `- <now> <role>: decision: d3 haiku; <question> (asked by <role>)`
 pub fn decision_note(by: &str, d: &Decision, option: &str) -> String {
-    crate::board::note_line(
+    crate::chat::note_line(
         by,
         &format!(
             "decision: {} {}; {} (asked by {} at {})",
@@ -293,12 +293,12 @@ pub fn forge_link(repo: &str, branch: &str, path: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    const BOARD: &str = "# t: the crew's board\n\npreamble\n\n| role | working tree | owns |\n| --- | --- | --- |\n| a | `/a` | x |\n\n## Resources\n\n| resource | owner | rules |\n| --- | --- | --- |\n| m0 | operations | ask first \\| then wait |\n\n## Decisions pending\n\nTick one box.\n\n- d2 · 2026-10-10 16:50 · crew: Which model?\n  - [ ] haiku (recommended)\n  - [x] sonnet\n- d5 · 2026-10-10 16:51 · product: Ship?\n  - [ ] yes\n  - [ ] no\n\n## Status\n\n- 2026-10-10 09:00 a: seed\n- 2026-10-10 09:01 user: decision: d4 yes; Older? (asked by a at 2026-10-10 08:00)\n";
+    const CHAT: &str = "# t: the crew's chat\n\npreamble\n\n| role | working tree | owns |\n| --- | --- | --- |\n| a | `/a` | x |\n\n## Resources\n\n| resource | owner | rules |\n| --- | --- | --- |\n| m0 | operations | ask first \\| then wait |\n\n## Decisions pending\n\nTick one box.\n\n- d2 · 2026-10-10 16:50 · crew: Which model?\n  - [ ] haiku (recommended)\n  - [x] sonnet\n- d5 · 2026-10-10 16:51 · product: Ship?\n  - [ ] yes\n  - [ ] no\n\n## Status\n\n- 2026-10-10 09:00 a: seed\n- 2026-10-10 09:01 user: decision: d4 yes; Older? (asked by a at 2026-10-10 08:00)\n";
 
     #[test]
     fn parses_every_section() {
-        let d = Doc::parse(BOARD);
-        assert!(d.head.starts_with("# t: the crew's board\n") && d.head.contains("| a | `/a` | x |"));
+        let d = Doc::parse(CHAT);
+        assert!(d.head.starts_with("# t: the crew's chat\n") && d.head.contains("| a | `/a` | x |"));
         assert_eq!(
             d.resources,
             vec![Resource {
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn renders_back_the_same_shape() {
-        let d = Doc::parse(BOARD);
+        let d = Doc::parse(CHAT);
         let again = Doc::parse(&d.render());
         assert_eq!(d, again);
         assert!(d.render().contains("## Resources\n\n| resource | owner | rules |\n| --- | --- | --- |\n| m0 | operations | ask first \\| then wait |\n"));
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn ticks_become_notes() {
-        let mut d = Doc::parse(BOARD);
+        let mut d = Doc::parse(CHAT);
         let added = d.resolve_ticks("user");
         assert_eq!(added.len(), 1);
         assert!(
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn plain_board_has_no_sections() {
+    fn plain_chat_has_no_sections() {
         let d = Doc::parse("# x\n\n## Status\n\n- 2026-10-10 09:00 a: seed\n");
         assert!(d.resources.is_empty() && d.pending.is_empty());
         assert_eq!(d.next_id(), "d1");
@@ -360,7 +360,7 @@ mod tests {
             forge_link("https://github.com/o/r.git", "main", "docs/dev/sessions.md").as_deref(),
             Some("https://github.com/o/r/blob/main/docs/dev/sessions.md#decisions-pending")
         );
-        assert_eq!(forge_link("/tmp/board.git", "main", "x.md"), None);
+        assert_eq!(forge_link("/tmp/chat.git", "main", "x.md"), None);
         assert_eq!(forge_link("git@github.com:o/r.git", "main", "x.md"), None);
     }
 }

@@ -35,7 +35,7 @@ fn a_relay_session_is_never_a_role_and_is_labelled() {
 }
 
 #[test]
-fn tagged_notes_filter_on_the_board() {
+fn tagged_notes_filter_on_the_chat() {
     let e = Env::new();
     e.crew()
         .args(["note", "--as", "engine", "done: custom tools landed"])
@@ -59,28 +59,28 @@ fn tagged_notes_filter_on_the_board() {
         .success();
     let out =
         |args: &[&str]| String::from_utf8(e.crew().args(args).assert().success().get_output().stdout.clone()).unwrap();
-    let done = out(&["board", "--tag", "done"]);
+    let done = out(&["chat", "--tag", "done"]);
     assert_eq!(done.lines().count(), 1);
-    assert!(done.contains(" engine: done: custom tools landed"));
+    assert!(done.contains("<engine> done: custom tools landed"));
     assert_eq!(
-        out(&["board", "--decisions"]).trim(),
-        out(&["board", "--tag", "decision:"]).trim()
+        out(&["chat", "--decisions"]).trim(),
+        out(&["chat", "--tag", "decision:"]).trim()
     );
-    assert!(out(&["board", "--decisions"]).contains("both machines stay on"));
-    assert_eq!(out(&["board", "--tag", "to"]).lines().count(), 1);
-    assert_eq!(out(&["board", "--tag", "heads-up"]).lines().count(), 1);
-    assert_eq!(out(&["board", "--tag", "plain"]).trim(), "(no matching notes)");
+    assert!(out(&["chat", "--decisions"]).contains("both machines stay on"));
+    assert_eq!(out(&["chat", "--tag", "to"]).lines().count(), 1);
+    assert_eq!(out(&["chat", "--tag", "heads-up"]).lines().count(), 1);
+    assert_eq!(out(&["chat", "--tag", "plain"]).trim(), "(no matching notes)");
     assert_eq!(
-        out(&["board", "--for", "engine", "--tag", "done", "--all"])
+        out(&["chat", "--for", "engine", "--tag", "done", "--all"])
             .lines()
             .count(),
         1
     );
     assert_eq!(
-        out(&["board", "--for", "engine", "--tag", "decision"]).trim(),
+        out(&["chat", "--for", "engine", "--tag", "decision"]).trim(),
         "(no matching notes)"
     );
-    e.crew().args(["board", "--tag", "x", "--decisions"]).assert().code(2);
+    e.crew().args(["chat", "--tag", "x", "--decisions"]).assert().code(2);
 }
 
 #[test]

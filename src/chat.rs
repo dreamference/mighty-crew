@@ -1,4 +1,4 @@
-//! The board: one Markdown file in one repository, appended through a small clone of its own.
+//! The chat: one Markdown file in one repository, appended through a small clone of its own.
 
 use crate::config::{Config, Identity, Role};
 use crate::sections::Doc;
@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub const STATUS_HEADING: &str = "## Status";
 
-pub struct Board {
+pub struct Chat {
     pub repo: String,
     pub path: String,
     pub branch: String,
@@ -32,20 +32,20 @@ pub fn slug(repo: &str) -> String {
         })
         .collect();
     if s.is_empty() {
-        "board".into()
+        "chat".into()
     } else {
         s
     }
 }
 
-impl Board {
-    pub fn new(cfg: &Config) -> Result<Board> {
-        Ok(Board {
-            repo: cfg.board.repo.clone(),
-            path: cfg.board.path.clone(),
-            branch: cfg.board.branch.clone(),
-            identity: cfg.board.identity.clone(),
-            clone: util::cache_dir()?.join("board").join(slug(&cfg.board.repo)),
+impl Chat {
+    pub fn new(cfg: &Config) -> Result<Chat> {
+        Ok(Chat {
+            repo: cfg.chat.repo.clone(),
+            path: cfg.chat.path.clone(),
+            branch: cfg.chat.branch.clone(),
+            identity: cfg.chat.identity.clone(),
+            clone: util::cache_dir()?.join("chat").join(slug(&cfg.chat.repo)),
         })
     }
 
@@ -53,7 +53,7 @@ impl Board {
         self.clone.join(&self.path)
     }
 
-    /// Clone the board's repository once: blobs filtered, one file checked out.
+    /// Clone the chat's repository once: blobs filtered, one file checked out.
     /// A failed clone leaves its directory behind; the next attempt starts over.
     pub fn ensure_clone(&self, limit: Duration) -> Result<()> {
         if self.clone.join(".git").is_dir() {
@@ -77,7 +77,7 @@ impl Board {
             )?;
             if !plain.ok() {
                 bail!(
-                    "cannot clone the board's repository {}: {}",
+                    "cannot clone the chat's repository {}: {}",
                     self.repo,
                     util::one_line(&plain.stderr)
                 );
@@ -111,7 +111,7 @@ impl Board {
                 return Ok(());
             }
             bail!(
-                "cannot fetch the board from {}: {}",
+                "cannot fetch the chat from {}: {}",
                 self.repo,
                 util::one_line(&fetched.stderr)
             );
@@ -123,7 +123,7 @@ impl Board {
         Ok(())
     }
 
-    /// The board's text as last fetched; empty when the file does not exist.
+    /// The chat's text as last fetched; empty when the file does not exist.
     pub fn read(&self) -> String {
         std::fs::read_to_string(self.file()).unwrap_or_default()
     }
@@ -132,7 +132,7 @@ impl Board {
         self.file().is_file()
     }
 
-    /// The board as sections, from the last fetched copy; a missing or headless file gets the header.
+    /// The chat as sections, from the last fetched copy; a missing or headless file gets the header.
     pub fn doc(&self, cfg: &Config) -> Doc {
         let content = self.read();
         if content.contains(STATUS_HEADING) {
@@ -142,7 +142,7 @@ impl Board {
         }
     }
 
-    /// Change the board and push: fetch, apply `mutate` to the sections, record any decision ticked
+    /// Change the chat and push: fetch, apply `mutate` to the sections, record any decision ticked
     /// on the forge as a note, commit, push; three attempts, each on a fresh fetch. Returns the
     /// notes written for ticked decisions, or None when `mutate` reported nothing to change.
     pub fn write(
@@ -168,14 +168,14 @@ impl Board {
             }
             last_err = util::one_line(&pushed.stderr);
         }
-        bail!("could not push the board after 3 attempts: {last_err}");
+        bail!("could not push the chat after 3 attempts: {last_err}");
     }
 
     /// Append one note as `role`, commit and push.
     pub fn append(&self, cfg: &Config, role: &str, text: &str) -> Result<String> {
         let line = note_line(role, text);
         let l = line.clone();
-        self.write(cfg, &format!("board: {role}"), move |doc| {
+        self.write(cfg, &format!("chat: {role}"), move |doc| {
             doc.notes.push(l.clone());
             Ok(true)
         })?;
@@ -185,7 +185,7 @@ impl Board {
     /// Rewrite the part before the sections from the configuration, keeping everything else.
     pub fn sync_roles(&self, cfg: &Config) -> Result<bool> {
         let head = Doc::parse(&render_header(&cfg.crew.name, &cfg.roles, &self.path)).head;
-        let r = self.write(cfg, "board: roles", move |doc| {
+        let r = self.write(cfg, "chat: roles", move |doc| {
             if doc.head == head {
                 return Ok(false);
             }
@@ -227,7 +227,7 @@ impl Board {
             GIT_LIMIT,
         )?;
         if !out.ok() {
-            bail!("git commit on the board clone: {}", util::one_line(&out.stderr));
+            bail!("git commit on the chat clone: {}", util::one_line(&out.stderr));
         }
         Ok(())
     }
@@ -317,7 +317,7 @@ pub fn last_note<'a>(content: &'a str, role: &str) -> Option<&'a str> {
 /// Title, preamble and the role table, ending with the status heading.
 pub fn render_header(crew: &str, roles: &[Role], path: &str) -> String {
     let mut s = String::new();
-    s.push_str(&format!("# {crew}: the crew's board\n\n"));
+    s.push_str(&format!("# {crew}: the crew's chat\n\n"));
     s.push_str(&format!(
         "One line per hand-off, newest last, written by every role and read by every role at start. \
          Append with `crew note \"<what changed>\"` (it commits this file, `{path}`, through its own clone); \
@@ -346,9 +346,9 @@ mod tests {
     fn slug_takes_the_last_component() {
         assert_eq!(slug("https://github.com/dreamference/mightling.git"), "mightling");
         assert_eq!(slug("git@github.com:dreamference/mightling.git"), "mightling");
-        assert_eq!(slug("/tmp/board.git/"), "board");
+        assert_eq!(slug("/tmp/chat.git/"), "chat");
         assert_eq!(slug("weird name!"), "weird-name-");
-        assert_eq!(slug(""), "board");
+        assert_eq!(slug(""), "chat");
     }
 
     #[test]
@@ -397,7 +397,7 @@ mod tests {
             dispatcher: false,
         }];
         let h = render_header("c", &roles, "docs/b.md");
-        assert!(h.starts_with("# c: the crew's board\n\n"));
+        assert!(h.starts_with("# c: the crew's chat\n\n"));
         assert!(h.contains("| ops | `~/x` | a \\| b |\n"));
         assert!(h.ends_with("\n## Status\n\n"));
         assert!(h.contains("`docs/b.md`"));

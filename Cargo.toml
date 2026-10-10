@@ -1,8 +1,8 @@
 [package]
 name = "mighty-crew"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
-description = "A crew of coding-agent sessions on one codebase: one role per working tree, a shared board, messages between roles."
+description = "A crew of coding-agent sessions on one codebase: one role per working tree, a shared chat, messages between roles."
 license = "AGPL-3.0-only"
 repository = "https://github.com/dreamference/mighty-crew"
 default-run = "crew"

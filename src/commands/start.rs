@@ -1,5 +1,5 @@
 use crate::agent;
-use crate::board::{self, Board};
+use crate::chat::{self, Chat};
 use crate::config::{Config, Role};
 use crate::util::{self, git, git_ok, git_raw, GIT_LIMIT};
 use anyhow::{bail, Result};
@@ -24,7 +24,7 @@ pub fn run(role_name: &str, fresh: bool, create: bool) -> Result<i32> {
 
     sync_tree(role);
     print_charter(&cfg, role);
-    print_board(&cfg);
+    print_chat(&cfg);
     record_start(role).ok();
 
     let resume = !fresh && agent::has_conversation(&role.tree)?;
@@ -149,22 +149,23 @@ fn print_charter(cfg: &Config, role: &Role) {
     }
 }
 
-fn print_board(cfg: &Config) {
-    let Ok(b) = Board::new(cfg) else { return };
+fn print_chat(cfg: &Config) {
+    let Ok(b) = Chat::new(cfg) else { return };
     match b.refresh(Duration::from_secs(20)) {
         Ok(()) => {}
-        Err(e) => eprintln!("(board: {e}; showing the last copy)"),
+        Err(e) => eprintln!("(chat: {e}; showing the last copy)"),
     }
     let content = b.read();
-    let lines = board::tail(&content, 12);
+    let lines = chat::tail(&content, 12);
     if lines.is_empty() {
-        println!("-- board ({} on {}): no notes yet", b.path, b.repo);
+        println!("-- chat ({} on {}): no notes yet", b.path, b.repo);
         return;
     }
-    println!("-- board ({} on {}), newest last:", b.path, b.repo);
-    for l in lines {
-        println!("{l}");
-    }
+    println!("-- chat ({} on {}), newest last:", b.path, b.repo);
+    print!(
+        "{}",
+        crate::display::chat(&lines, &cfg.role_name_list(), crate::display::color_enabled())
+    );
 }
 
 /// Remember how the role was started, so `crew doctor` can compare it with the configuration.

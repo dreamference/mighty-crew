@@ -1,4 +1,4 @@
-use crate::board::{self, Board};
+use crate::chat::{self, Chat};
 use crate::config::Config;
 use crate::util::GIT_LIMIT;
 use anyhow::Result;
@@ -13,15 +13,15 @@ pub fn run(
     tag: Option<&str>,
 ) -> Result<i32> {
     let cfg = Config::load()?;
-    let b = Board::new(&cfg)?;
+    let b = Chat::new(&cfg)?;
     if sync_roles {
         if b.sync_roles(&cfg)? {
             println!(
-                "board: role table rewritten from {}",
+                "chat: role table rewritten from {}",
                 crate::util::display_path(&cfg.path)
             );
         } else {
-            println!("board: role table already current");
+            println!("chat: role table already current");
         }
         return Ok(0);
     }
@@ -49,7 +49,7 @@ pub fn run(
                 );
             }
             if let Some(t) = &d.ticked {
-                println!("  answered on the forge: {t} (recorded as a note at the next board write)");
+                println!("  answered on the forge: {t} (recorded as a note at the next chat write)");
             }
         }
         println!("answer with `crew answer <id> <option>`{}", super::ask::link_suffix(&b));
@@ -58,7 +58,7 @@ pub fn run(
     let content = b.read();
     if !b.exists() {
         println!(
-            "(the board {} does not exist yet on {}; the first `crew note` creates it)",
+            "(the chat {} does not exist yet on {}; the first `crew note` creates it)",
             b.path, b.repo
         );
         return Ok(0);
@@ -67,14 +67,14 @@ pub fn run(
     let mut lines = match (for_role, tag) {
         (Some(r), _) => {
             cfg.role(r)?;
-            let mut mine = board::lines_for(&content, r);
+            let mut mine = chat::lines_for(&content, r);
             if let Some(t) = tag {
-                mine.retain(|l| board::parse_note(l).and_then(|(_, _, text)| board::tag_of(text)) == Some(t));
+                mine.retain(|l| chat::parse_note(l).and_then(|(_, _, text)| chat::tag_of(text)) == Some(t));
             }
             mine
         }
-        (None, Some(t)) => board::lines_tagged(&content, t),
-        (None, None) => board::status_lines(&content),
+        (None, Some(t)) => chat::lines_tagged(&content, t),
+        (None, None) => chat::status_lines(&content),
     };
     if !all {
         let skip = lines.len().saturating_sub(n);
@@ -90,8 +90,9 @@ pub fn run(
             }
         );
     }
-    for l in lines {
-        println!("{l}");
-    }
+    print!(
+        "{}",
+        crate::display::chat(&lines, &cfg.role_name_list(), crate::display::color_enabled())
+    );
     Ok(0)
 }

@@ -1,6 +1,6 @@
 //! `crew answer`: record the user's choice on a pending decision as a `decision:` note.
 
-use crate::board::Board;
+use crate::chat::Chat;
 use crate::config::Config;
 use crate::sections;
 use anyhow::{bail, Result};
@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 pub fn run(id: &str, option: &str, as_role: Option<&str>) -> Result<i32> {
     let cfg = Config::load()?;
     let by = super::signer(&cfg, as_role)?;
-    let b = Board::new(&cfg)?;
+    let b = Chat::new(&cfg)?;
     b.refresh(crate::util::GIT_LIMIT)?;
     let doc = b.doc(&cfg);
     let Some(d) = doc.pending.iter().find(|d| d.id == id) else {
@@ -30,7 +30,7 @@ pub fn run(id: &str, option: &str, as_role: Option<&str>) -> Result<i32> {
     };
     let chosen = chosen.clone();
     let mut note = String::new();
-    let ticked = b.write(&cfg, &format!("board: answer {id}"), |doc| {
+    let ticked = b.write(&cfg, &format!("chat: answer {id}"), |doc| {
         let Some(pos) = doc.pending.iter().position(|d| d.id == id) else {
             return Ok(false);
         };
@@ -40,7 +40,7 @@ pub fn run(id: &str, option: &str, as_role: Option<&str>) -> Result<i32> {
         Ok(true)
     })?;
     match ticked {
-        None => bail!("{id} was answered on the forge in the meantime; see `crew board --decisions`"),
+        None => bail!("{id} was answered on the forge in the meantime; see `crew chat --decisions`"),
         Some(others) => {
             for t in others {
                 println!("recorded from the forge: {t}");

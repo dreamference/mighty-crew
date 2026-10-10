@@ -1,7 +1,7 @@
 pub mod adopt;
 pub mod answer;
 pub mod ask;
-pub mod board;
+pub mod chat;
 pub mod doctor;
 pub mod handoff;
 pub mod hook;
@@ -18,7 +18,7 @@ pub mod up;
 use crate::config::{Config, Role};
 use anyhow::Result;
 
-/// Who signs a board line: the named role (which must exist), else the role owning the current
+/// Who signs a chat line: the named role (which must exist), else the role owning the current
 /// directory, else `user`.
 pub fn signer(cfg: &Config, named: Option<&str>) -> Result<String> {
     if let Some(n) = named {

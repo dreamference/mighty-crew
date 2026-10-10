@@ -38,7 +38,15 @@ pub fn run(fresh: bool) -> Result<i32> {
     if to_open.is_empty() {
         println!("every role is running");
     } else if let Some(tmux) = util::which("tmux") {
-        let session = format!("crew.{}", cfg.crew.name);
+        // tmux reads `.` and `:` in a target as pane and window separators, so neither may be in the name.
+        let session = format!(
+            "crew-{}",
+            cfg.crew
+                .name
+                .chars()
+                .map(|c| if c == '.' || c == ':' { '-' } else { c })
+                .collect::<String>()
+        );
         let has = Command::new(&tmux)
             .args(["has-session", "-t", &session])
             .output()
@@ -53,10 +61,16 @@ pub fn run(fresh: bool) -> Result<i32> {
                     .join(" ");
                 let mut c = Command::new(&tmux);
                 if i == 0 {
-                    c.args(["new-session", "-d", "-s", &session, "-n", &r.name, &cmd]);
+                    c.args(["new-session", "-d", "-s", &session, "-n", &r.name]);
                 } else {
-                    c.args(["new-window", "-t", &session, "-n", &r.name, &cmd]);
+                    c.args(["new-window", "-t", &session, "-n", &r.name]);
                 }
+                // A running tmux server keeps its own environment: hand the configuration path over.
+                if let Some(cfg_path) = std::env::var_os("MIGHTY_CREW_CONFIG") {
+                    c.arg("-e")
+                        .arg(format!("MIGHTY_CREW_CONFIG={}", cfg_path.to_string_lossy()));
+                }
+                c.arg(&cmd);
                 let out = c.output()?;
                 if !out.status.success() {
                     bail!("tmux: {}", util::one_line(&String::from_utf8_lossy(&out.stderr)));

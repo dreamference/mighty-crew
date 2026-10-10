@@ -1,5 +1,5 @@
 use crate::agent::{self, Delivery};
-use crate::board::Board;
+use crate::chat::Chat;
 use crate::config::Config;
 use anyhow::{bail, Result};
 
@@ -14,7 +14,7 @@ pub fn run(role: &str, text: &str) -> Result<i32> {
     }
     if text.chars().count() > MAX_CHARS {
         bail!(
-            "the message is {} characters; keep it under {MAX_CHARS} and put the rest on the board or in a file",
+            "the message is {} characters; keep it under {MAX_CHARS} and put the rest on the chat or in a file",
             text.chars().count()
         );
     }
@@ -24,12 +24,12 @@ pub fn run(role: &str, text: &str) -> Result<i32> {
     if sender.as_deref() == Some(role) {
         bail!("{role} is the role you are in; message another role");
     }
-    // The durable twin: the same text on the board, so a held or expired message is not lost.
+    // The durable twin: the same text on the chat, so a held or expired message is not lost.
     let twin = format!("to {role}: {text}");
-    // Written first and fail-closed: a message the board does not hold is not sent.
-    let line = Board::new(&cfg)
+    // Written first and fail-closed: a message the chat does not hold is not sent.
+    let line = Chat::new(&cfg)
         .and_then(|b| b.append(&cfg, sender.as_deref().unwrap_or("user"), &twin))
-        .map_err(|e| anyhow::anyhow!("the board did not take the line, so nothing was sent: {e:#}"))?;
+        .map_err(|e| anyhow::anyhow!("the chat did not take the line, so nothing was sent: {e:#}"))?;
     println!("{line}");
     let sessions = agent::list_sessions(&target.command)?;
     let Some(session) = agent::session_in(&sessions, &target.tree) else {

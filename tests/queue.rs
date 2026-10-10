@@ -11,7 +11,7 @@ fn out(e: &Env, args: &[&str]) -> String {
 }
 
 #[test]
-fn ask_and_answer_go_through_the_board() {
+fn ask_and_answer_go_through_the_chat() {
     let e = Env::new();
     let text = out(
         &e,
@@ -32,20 +32,20 @@ fn ask_and_answer_go_through_the_board() {
             && text.contains("- sonnet"),
         "{text}"
     );
-    let board = e.board_on_remote();
-    assert!(board.contains("## Decisions pending\n"), "{board}");
+    let chat = e.chat_on_remote();
+    assert!(chat.contains("## Decisions pending\n"), "{chat}");
     assert!(
-        board.contains("- d1 · ")
-            && board.contains(" · engine: Which model for the relay?\n  - [ ] haiku (recommended)\n  - [ ] sonnet\n"),
-        "{board}"
+        chat.contains("- d1 · ")
+            && chat.contains(" · engine: Which model for the relay?\n  - [ ] haiku (recommended)\n  - [ ] sonnet\n"),
+        "{chat}"
     );
-    assert!(board.find("## Decisions pending").unwrap() < board.find("## Status").unwrap());
-    assert_eq!(git(&e.bare, &["log", "-1", "--format=%s", "main"]), "board: ask engine");
+    assert!(chat.find("## Decisions pending").unwrap() < chat.find("## Status").unwrap());
+    assert_eq!(git(&e.bare, &["log", "-1", "--format=%s", "main"]), "chat: ask engine");
 
-    // Pending in board, status, hook; a second ask gets d2.
+    // Pending in chat, status, hook; a second ask gets d2.
     assert!(
-        out(&e, &["board", "--pending"]).contains("d1 · ")
-            && out(&e, &["board", "--pending"]).contains("answer with `crew answer <id> <option>`")
+        out(&e, &["chat", "--pending"]).contains("d1 · ")
+            && out(&e, &["chat", "--pending"]).contains("answer with `crew answer <id> <option>`")
     );
     assert!(out(&e, &["status"]).contains("1 decision(s) pending"));
     let hook = String::from_utf8(
@@ -62,8 +62,7 @@ fn ask_and_answer_go_through_the_board() {
     assert!(hook.contains("1 decision(s) waiting for the user"), "{hook}");
     out(&e, &["ask", "Ship tonight?", "--options", "yes", "--options", "no"]);
     assert!(
-        out(&e, &["board", "--pending"]).contains("d2 · ")
-            && out(&e, &["board", "--pending"]).contains("asked by user")
+        out(&e, &["chat", "--pending"]).contains("d2 · ") && out(&e, &["chat", "--pending"]).contains("asked by user")
     );
 
     // Answers: wrong id, wrong option, then the real one.
@@ -82,18 +81,18 @@ fn ask_and_answer_go_through_the_board() {
         a.contains(" user: decision: d1 haiku; Which model for the relay? (asked by engine at "),
         "{a}"
     );
-    let board = e.board_on_remote();
-    assert!(!board.contains("- d1 · ") && board.contains("- d2 · "), "{board}");
+    let chat = e.chat_on_remote();
+    assert!(!chat.contains("- d1 · ") && chat.contains("- d2 · "), "{chat}");
     assert!(
-        board.ends_with("decision: d1 haiku; Which model for the relay? (asked by engine at 2026-10-10 00:00)")
-            || board.contains("decision: d1 haiku;"),
-        "{board}"
+        chat.ends_with("decision: d1 haiku; Which model for the relay? (asked by engine at 2026-10-10 00:00)")
+            || chat.contains("decision: d1 haiku;"),
+        "{chat}"
     );
-    let decisions = out(&e, &["board", "--decisions"]);
+    let decisions = out(&e, &["chat", "--decisions"]);
     assert_eq!(decisions.lines().count(), 1);
     // Ids never repeat: the next ask is d3.
     out(&e, &["ask", "--as", "engine", "Again?", "--options", "a,b"]);
-    assert!(out(&e, &["board", "--pending"]).contains("d3 · "));
+    assert!(out(&e, &["chat", "--pending"]).contains("d3 · "));
     e.crew()
         .args(["ask", "Only one", "--options", "a"])
         .assert()
@@ -110,23 +109,20 @@ fn ask_and_answer_go_through_the_board() {
 fn a_box_ticked_on_the_forge_becomes_a_decision_note_at_the_next_write() {
     let e = Env::new();
     out(&e, &["ask", "--as", "product", "Tick me", "--options", "left,right"]);
-    let board = e.board_on_remote().replace("  - [ ] right", "  - [x] right");
-    e.write_remote_board(&board);
-    let pending = out(&e, &["board", "--pending"]);
+    let chat = e.chat_on_remote().replace("  - [ ] right", "  - [x] right");
+    e.write_remote_chat(&chat);
+    let pending = out(&e, &["chat", "--pending"]);
     assert!(
-        pending.contains("answered on the forge: right (recorded as a note at the next board write)"),
+        pending.contains("answered on the forge: right (recorded as a note at the next chat write)"),
         "{pending}"
     );
     let note = out(&e, &["note", "--as", "engine", "unrelated"]);
     assert!(note.contains("unrelated"));
-    let board = e.board_on_remote();
-    assert!(!board.contains("## Decisions pending"), "{board}");
-    assert!(
-        board.contains(" user: decision: d1 right; Tick me (asked by "),
-        "{board}"
-    );
-    assert!(board.ends_with(" engine: unrelated"), "{board}");
-    assert_eq!(out(&e, &["board", "--pending"]).trim(), "(no decisions pending)");
+    let chat = e.chat_on_remote();
+    assert!(!chat.contains("## Decisions pending"), "{chat}");
+    assert!(chat.contains(" user: decision: d1 right; Tick me (asked by "), "{chat}");
+    assert!(chat.ends_with(" engine: unrelated"), "{chat}");
+    assert_eq!(out(&e, &["chat", "--pending"]).trim(), "(no decisions pending)");
     // Answering a decision already ticked and recorded is refused with the open list.
     e.crew()
         .args(["answer", "d1", "left"])
@@ -136,7 +132,7 @@ fn a_box_ticked_on_the_forge_becomes_a_decision_note_at_the_next_write() {
 }
 
 #[test]
-fn resources_live_on_the_board_and_in_status() {
+fn resources_live_on_the_chat_and_in_status() {
     let e = Env::new();
     assert!(out(&e, &["resource"]).contains("(no resources declared"));
     let r = out(
@@ -153,8 +149,8 @@ fn resources_live_on_the_board_and_in_status() {
         r.contains("second-puffin:18080 (engine): restarts only at commits, announced first"),
         "{r}"
     );
-    let board = e.board_on_remote();
-    assert!(board.contains("## Resources\n\n| resource | owner | rules |\n| --- | --- | --- |\n| second-puffin:18080 | engine | restarts only at commits, announced first |\n"), "{board}");
+    let chat = e.chat_on_remote();
+    assert!(chat.contains("## Resources\n\n| resource | owner | rules |\n| --- | --- | --- |\n| second-puffin:18080 | engine | restarts only at commits, announced first |\n"), "{chat}");
     assert!(out(
         &e,
         &[
@@ -185,12 +181,12 @@ fn resources_live_on_the_board_and_in_status() {
     assert!(out(&e, &["status"]).contains("resources: second-puffin:18080 (engine): restarts only at commits, announced first; m0-prod8000 (operations): ask | operations first"));
     // A later note keeps the table, and a sync keeps it too.
     out(&e, &["note", "--as", "operations", "after"]);
-    out(&e, &["board", "--sync-roles"]);
-    let board = e.board_on_remote();
+    out(&e, &["chat", "--sync-roles"]);
+    let chat = e.chat_on_remote();
     assert!(
-        board.contains("| m0-prod8000 | operations | ask \\| operations first |")
-            && board.ends_with(" operations: after"),
-        "{board}"
+        chat.contains("| m0-prod8000 | operations | ask \\| operations first |")
+            && chat.ends_with(" operations: after"),
+        "{chat}"
     );
     e.crew()
         .args(["resource", "x"])
@@ -303,7 +299,7 @@ fn handoff_copies_into_the_neutral_folder_and_notes_it() {
         "{text}"
     );
     assert!(text.contains("1 file(s) mention /tmp/ paths"), "{text}");
-    assert!(e.board_on_remote().contains("to engine: handoff recordings at"));
+    assert!(e.chat_on_remote().contains("to engine: handoff recordings at"));
     e.crew()
         .current_dir(&e.product)
         .args(["handoff", "engine", src.to_str().unwrap()])
@@ -416,23 +412,24 @@ fn up_opens_every_role_in_tmux_or_prints_the_lines() {
     assert!(tree.is_dir(), "{text}");
     assert!(
         text.contains("engine: already running (engine)")
-            && text.contains("operations: started in tmux window crew.test:operations")
-            && text.contains("product: started in tmux window crew.test:product"),
+            && text.contains("operations: started in tmux window crew-test:operations")
+            && text.contains("product: started in tmux window crew-test:product"),
         "{text}"
     );
     let calls = fs::read_to_string(&log).unwrap();
     let lines: Vec<&str> = calls.lines().collect();
-    assert_eq!(lines[0], "has-session -t crew.test");
+    assert_eq!(lines[0], "has-session -t crew-test");
     assert!(
-        lines[1].starts_with("new-session -d -s crew.test -n operations ")
+        lines[1].starts_with("new-session -d -s crew-test -n operations -e MIGHTY_CREW_CONFIG=")
             && lines[1].ends_with(" start operations --new"),
         "{calls}"
     );
     assert!(
-        lines[2].starts_with("new-window -t crew.test -n product ") && lines[2].ends_with(" start product --new"),
+        lines[2].starts_with("new-window -t crew-test -n product -e MIGHTY_CREW_CONFIG=")
+            && lines[2].ends_with(" start product --new"),
         "{calls}"
     );
-    assert_eq!(lines[3], "attach -t crew.test");
+    assert_eq!(lines[3], "attach -t crew-test");
     assert!(!calls.contains("engine"), "{calls}");
 
     // An existing tmux session is attached, not rebuilt.
@@ -444,10 +441,10 @@ fn up_opens_every_role_in_tmux_or_prints_the_lines() {
         .arg("up")
         .assert()
         .success()
-        .stdout(predicates::str::contains("tmux session crew.test exists; attaching"));
+        .stdout(predicates::str::contains("tmux session crew-test exists; attaching"));
     assert_eq!(
         fs::read_to_string(&log).unwrap().trim(),
-        "has-session -t crew.test\nattach -t crew.test"
+        "has-session -t crew-test\nattach -t crew-test"
     );
 
     // Inside tmux already: switch-client.
@@ -462,7 +459,7 @@ fn up_opens_every_role_in_tmux_or_prints_the_lines() {
         .success();
     assert!(fs::read_to_string(&log)
         .unwrap()
-        .ends_with("switch-client -t crew.test\n"));
+        .ends_with("switch-client -t crew-test\n"));
 
     // A role whose tree is missing and not configured is reported, and the rest still opens.
     e.write_config(

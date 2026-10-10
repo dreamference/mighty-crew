@@ -181,6 +181,17 @@ pub fn run() -> Result<i32> {
             "run `crew install-hook` so sessions start with the board",
         ),
     }
+    if super::hook::skill_installed()? {
+        r.ok(&format!(
+            "/crew skill in {}",
+            util::display_path(&super::hook::skill_path()?)
+        ));
+    } else {
+        r.fix(
+            "no /crew skill, or an older one",
+            "run `crew install-hook`; it writes the skill as well",
+        );
+    }
 
     // Terminal, when configured.
     if !cfg.terminal.commands.is_empty() {

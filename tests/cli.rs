@@ -424,6 +424,12 @@ fn hook_install_remove_and_session_start() {
         .assert()
         .success()
         .stdout(predicates::str::contains("already installed"));
+    let skill = e.home.join(".claude/skills/crew/SKILL.md");
+    let text = fs::read_to_string(&skill).unwrap();
+    assert!(
+        text.starts_with("---\nname: crew\n") && text.contains("crew $ARGUMENTS"),
+        "{text}"
+    );
 
     // The hook prints the board in a role's tree and nothing elsewhere.
     e.crew()
@@ -444,6 +450,7 @@ fn hook_install_remove_and_session_start() {
         .assert()
         .success()
         .stdout(predicates::str::contains("hook removed"));
+    assert!(!skill.exists());
     let s: serde_json::Value = serde_json::from_str(&fs::read_to_string(e.settings()).unwrap()).unwrap();
     assert_eq!(s["hooks"]["SessionStart"].as_array().unwrap().len(), 1);
     assert_eq!(s["theme"], "dark");
@@ -480,6 +487,7 @@ fn doctor_reports_each_problem_with_its_fix() {
         "board file docs/other.md is missing",
         "runs `/elsewhere/crew hook`, not this binary",
         "which is no role's tree",
+        "no /crew skill",
     ] {
         assert!(out.contains(needle), "missing {needle:?} in:\n{out}");
     }

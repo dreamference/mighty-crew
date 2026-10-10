@@ -19,7 +19,7 @@ One Rust binary, `crew`. It runs [Claude Code](https://code.claude.com) sessions
 cargo build --release && install -m 755 target/release/crew ~/.local/bin/crew
 cd ~/src/your-repo && crew init   # writes ~/.config/mighty-crew/crew.toml from the repository
 $EDITOR ~/.config/mighty-crew/crew.toml   # one [roles.<name>] table per role, each with its own tree
-crew install-hook                 # every session in a role's tree starts with the board in its context
+crew install-hook                 # every session in a role's tree starts with the board in its context, and /crew works inside sessions
 crew doctor                       # what is missing, with the fix
 ```
 
@@ -33,7 +33,7 @@ crew note  "<text>"                    append a dated line as the role whose tre
 crew msg   <role> "<text>"             send a line to that role's running session (and its twin to the board)
 crew status                            roles, trees, branches, heads, running or not, last note
 crew doctor                            check the configuration, the trees, the board clone, the hook
-crew install-hook | remove-hook        the SessionStart hook that prints the board
+crew install-hook | remove-hook        the SessionStart hook that prints the board, and the /crew skill
 crew init                              write a configuration from the current repository
 ```
 

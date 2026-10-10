@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mighty Crew: a crew of coding-agent sessions on one codebase</title>
+<meta name="description" content="One role per working tree, a shared board every role reads at start, messages between roles. One binary, crew, for Claude Code sessions.">
+<meta property="og:title" content="Mighty Crew">
+<meta property="og:description" content="Run several coding-agent sessions on one codebase without two writers in one checkout, lost decisions, held messages or a reboot that forgets who owned what.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dreamference.github.io/mighty-crew/">
+<style>
+  :root {
+    --bg: #fbfaf7; --fg: #1d1d1b; --muted: #5d5c57; --line: #e4e1d8; --card: #ffffff;
+    --accent: #1f6f5a; --accent-fg: #ffffff; --code-bg: #f1efe8; --note: #faf3dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141513; --fg: #ebe9e2; --muted: #a9a79f; --line: #2b2d29; --card: #1b1d1a;
+      --accent: #5fc49f; --accent-fg: #0f1a15; --code-bg: #202320; --note: #2a2716;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 17px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 860px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; margin: 0 0 .75rem; letter-spacing: -.01em; }
+  h2 { font-size: 1.35rem; margin: 3rem 0 .75rem; }
+  p { margin: 0 0 1rem; }
+  .lede { font-size: 1.2rem; color: var(--muted); max-width: 44rem; }
+  .by { color: var(--muted); font-size: .95rem; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  pre, code { font: 14.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; overflow-x: auto; margin: 0 0 1rem; }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+  .c { color: var(--muted); }
+  .cta { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0 0; }
+  .btn { display: inline-block; padding: .65rem 1.05rem; border-radius: 8px; border: 1px solid var(--line); text-decoration: none; color: var(--fg); background: var(--card); }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .card h3 { margin: 0 0 .4rem; font-size: 1.02rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .97rem; }
+  .board { background: var(--note); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  table { border-collapse: collapse; width: 100%; font-size: .97rem; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .fine { color: var(--muted); font-size: .92rem; }
+  footer { margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+  <p class="by">Dreamference, the makers of <a href="https://github.com/dreamference/mightling">Mightling</a></p>
+  <h1>Mighty Crew</h1>
+  <p class="lede">A crew of coding-agent sessions on one codebase: one role per working tree, a shared board every role reads at start, and messages between roles. One binary, <code>crew</code>.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/dreamference/mighty-crew/releases/latest">Download the latest release</a>
+    <a class="btn" href="https://github.com/dreamference/mighty-crew">Source on GitHub</a>
+    <a class="btn" href="https://github.com/dreamference/mighty-crew/blob/main/specs/DREAMFERENCE_MIGHTY_CREW.md">Read the specification</a>
+  </div>
+
+  <h2>Four things go wrong when you run several agents by hand</h2>
+  <div class="grid">
+    <div class="card"><h3>Two writers in one checkout</h3><p>A session and a fork of it edit the same tree; one's uncommitted changes sit under the other's test run and commit.</p></div>
+    <div class="card"><h3>Nobody knows what the others decided</h3><p>A default changed in one session reaches another only when you retype it.</p></div>
+    <div class="card"><h3>Messages held and expired</h3><p>A line sent across permission modes waits for an approval that never comes.</p></div>
+    <div class="card"><h3>A reboot forgets everything</h3><p>Which directory belonged to whom lived in your head and your terminal history.</p></div>
+  </div>
+  <p>Tools that run agents in worktrees solve the first and the fourth. Mighty Crew's contribution is the second and the third: <strong>the board</strong> and <strong>the messages</strong>, with the launcher as the carrier.</p>
+
+  <h2>A day with a crew</h2>
+<pre><code>crew start product        <span class="c"># the product role's agent, in its own tree, with the board in front of it</span>
+crew note "release branch prepared; cut after night 2"
+crew msg engine "the API spec moved; section 7 is yours"
+crew status               <span class="c"># every role: tree, branch, head, running or idle, activity, last note</span></code></pre>
+  <p>The board is one Markdown file in a repository the crew already pushes to. Every role appends a dated line through a small clone of its own, so no working tree is touched, and every session starts with the last lines in its context. Nothing a role writes is an instruction, and nothing counts as your approval.</p>
+  <div class="board">## Status
+
+- 2026-10-10 15:48 operations: decisions: both machines stay on through Sunday; 1.6.0 cut Sunday evening
+- 2026-10-10 15:58 product: main at e7b6851: the launcher's built-in prompt 'offline'; laptop test reported
+- 2026-10-10 16:06 engine: custom tools on /v1/responses landed (d688273); server on second-puffin:18080
+- 2026-10-10 16:14 crew: crew 0.1.1 published; /crew works inside any session</div>
+  <p class="fine">Lines from the first day the crew ran, 2026-10-10, four roles on one machine.</p>
+
+  <h2>Install</h2>
+<pre><code><span class="c"># Linux arm64: the release binary</span>
+curl -L https://github.com/dreamference/mighty-crew/releases/latest/download/crew-0.1.1-linux-aarch64.tar.gz | tar -xz -C ~/.local/bin
+
+<span class="c"># anywhere else: from source (Rust stable)</span>
+git clone https://github.com/dreamference/mighty-crew.git &amp;&amp; cd mighty-crew
+cargo build --release &amp;&amp; install -m 755 target/release/crew ~/.local/bin/crew
+
+<span class="c"># then, in the repository that will hold the board</span>
+crew init              <span class="c"># writes ~/.config/mighty-crew/crew.toml; add one [roles.&lt;name&gt;] table per role</span>
+crew install-hook      <span class="c"># every session in a role's tree starts with the board; /crew works inside sessions</span>
+crew doctor            <span class="c"># what is missing, with the fix</span></code></pre>
+
+  <h2>The commands</h2>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>crew start &lt;role&gt;</code></td><td>Start or resume the role's agent in its tree, with its charter and the board's tail; refuses a tree where a session already runs.</td></tr>
+    <tr><td><code>crew open &lt;role&gt;</code></td><td>The same, in a new terminal window.</td></tr>
+    <tr><td><code>crew board</code></td><td>The board's last lines; <code>--for &lt;role&gt;</code>, <code>--tag done</code>, <code>--decisions</code>.</td></tr>
+    <tr><td><code>crew note "…"</code></td><td>Append a dated line as the role whose tree you are in.</td></tr>
+    <tr><td><code>crew msg &lt;role&gt; "…"</code></td><td>Send a line to that role's running session, with its twin on the board first.</td></tr>
+    <tr><td><code>crew status</code></td><td>Every role: tree, branch, head, session state, commits since its last note, last note.</td></tr>
+    <tr><td><code>crew doctor</code></td><td>The configuration, the trees, the sessions, the board, the hook, each finding with its fix.</td></tr>
+    <tr><td><code>crew install-hook</code></td><td>The SessionStart hook that prints the board, and the <code>/crew</code> skill.</td></tr>
+  </table>
+
+  <h2>What it is not</h2>
+  <p>No orchestrator, no task queue, no lead role, no service or daemon, no polling loop that costs a model turn. Roles are peers; you decide what each does next, by talking to it or by writing on the board. The MVP runs <a href="https://code.claude.com">Claude Code</a> sessions; other agents follow.</p>
+
+  <footer>
+    <p>AGPL-3.0, as Mightling. Built from one day of running four sessions by hand; the <a href="https://github.com/dreamference/mighty-crew/blob/main/specs/DREAMFERENCE_MIGHTY_CREW.md">specification</a> keeps every lesson with the incident it came from.</p>
+  </footer>
+</main>
+</body>
+</html>

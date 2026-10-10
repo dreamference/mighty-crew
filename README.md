@@ -49,9 +49,16 @@ crew start <role> [--new] [--create]   start (or resume) the role's agent in its
 crew open  <role>                      the same, in a new terminal window (needs a display)
 crew board [-n N] [--all] [--for ROLE] print the board's status lines (default: the last 12)
 crew board --tag TAG | --decisions     only the notes tagged `decision:`, `done:`, `blocked:`, `heads-up:`, `to <role>:`
+crew ask "<question>" --options a,b,c  a decision for you, on the board; answer with `crew answer <id> <option>`
+                                       or tick the box on GitHub from your phone; `crew board --pending` lists them
+crew now "<doing>"                     what a role is doing right now; `crew status` shows it
+crew resource <name> "<rules>"         a shared resource and its rules, on the board
+crew handoff <role> <path>             data for another role through a neutral folder, never its tree
+crew up                                from a clone to a live crew: every role in a tmux window (or a terminal each)
 crew note  "<text>"                    append a dated line as the role whose tree you are in
 crew msg   <role> "<text>"             send a line to that role's running session (and its twin to the board)
-crew status                            roles, trees, branches, heads, sessions, activity from git, last note
+crew status                            roles, trees, branches, heads, sessions, activity from git, now, last note
+crew adopt <role>                      record the class of a session started by hand
 crew doctor                            check the configuration, the trees, the board clone, the hook
 crew install-hook | remove-hook        the SessionStart hook that prints the board, and the /crew skill
 crew init                              write a configuration from the current repository

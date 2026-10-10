@@ -11,6 +11,8 @@ pub struct Activity {
     pub commits_since_note: Option<u64>,
     pub minutes_since_note: Option<i64>,
     pub minutes_since_commit: Option<i64>,
+    /// The role's `crew now` line and its age, when it has one.
+    pub now: Option<(String, i64)>,
 }
 
 /// A note's `YYYY-MM-DD HH:MM` as a local time.
@@ -26,6 +28,16 @@ pub fn pushed_ref(tree: &Path) -> &'static str {
     } else {
         "HEAD"
     }
+}
+
+pub fn for_role(role: &str, tree: &Path, last_note: Option<&str>, now: DateTime<Local>) -> Activity {
+    let mut a = for_tree(tree, last_note, now);
+    if let Some((when, text)) = crate::commands::now::read(role) {
+        if let Some(t) = note_time(&when) {
+            a.now = Some((text, (now - t).num_minutes()));
+        }
+    }
+    a
 }
 
 pub fn for_tree(tree: &Path, last_note: Option<&str>, now: DateTime<Local>) -> Activity {
@@ -54,6 +66,15 @@ pub fn for_tree(tree: &Path, last_note: Option<&str>, now: DateTime<Local>) -> A
 pub fn is_quiet(a: &Activity, threshold: i64) -> bool {
     a.minutes_since_note.map(|m| m > threshold).unwrap_or(true)
         && a.minutes_since_commit.map(|m| m > threshold).unwrap_or(true)
+        && a.now.as_ref().map(|(_, m)| *m > threshold).unwrap_or(true)
+}
+
+/// The `now` line for a table cell: the text and its age, or `-`.
+pub fn describe_now(a: &Activity) -> String {
+    match &a.now {
+        Some((text, m)) => format!("{} ({})", crate::util::first_words(text, 6), ago(*m)),
+        None => "-".into(),
+    }
 }
 
 /// One short cell for `status`.
@@ -97,6 +118,7 @@ mod tests {
             commits_since_note: Some(0),
             minutes_since_note: Some(200),
             minutes_since_commit: Some(100),
+            now: None,
         };
         assert!(is_quiet(&a, 90));
         assert!(!is_quiet(
@@ -122,7 +144,8 @@ mod tests {
             describe(&Activity {
                 commits_since_note: Some(2),
                 minutes_since_note: Some(14),
-                minutes_since_commit: Some(3)
+                minutes_since_commit: Some(3),
+                now: None,
             }),
             "2 commits since note 14m ago, commit 3m ago"
         );

@@ -161,7 +161,7 @@ pub fn run() -> Result<i32> {
                         let last = board::last_note(&content, &role.name)
                             .and_then(board::parse_note)
                             .map(|(w, _, _)| w);
-                        let a = activity::for_tree(&role.tree, last, now);
+                        let a = activity::for_role(&role.name, &role.tree, last, now);
                         if activity::is_quiet(&a, QUIET_MINUTES) {
                             r.warn(
                                 &format!("role {}: its session is busy with neither a note nor a commit in {QUIET_MINUTES} minutes ({})", role.name, activity::describe(&a)),

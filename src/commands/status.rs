@@ -18,13 +18,14 @@ pub fn run() -> Result<i32> {
     };
     let mut listings: HashMap<String, Vec<agent::Session>> = HashMap::new();
     let now = chrono::Local::now();
-    let mut rows: Vec<[String; 7]> = vec![[
+    let mut rows: Vec<[String; 8]> = vec![[
         "role".into(),
         "tree".into(),
         "branch".into(),
         "head".into(),
         "session".into(),
         "activity".into(),
+        "now".into(),
         "last note".into(),
     ]];
     for role in &cfg.roles {
@@ -54,7 +55,9 @@ pub fn run() -> Result<i32> {
         let note = last
             .map(|(when, _, text)| format!("{when} {}", util::first_words(text, 8)))
             .unwrap_or_else(|| "-".into());
-        let activity = activity::describe(&activity::for_tree(&role.tree, last.map(|(when, _, _)| when), now));
+        let a = activity::for_role(&role.name, &role.tree, last.map(|(when, _, _)| when), now);
+        let activity = activity::describe(&a);
+        let now_cell = activity::describe_now(&a);
         rows.push([
             role.name.clone(),
             role.tree_text.clone(),
@@ -62,10 +65,11 @@ pub fn run() -> Result<i32> {
             head,
             session,
             activity,
+            now_cell,
             note,
         ]);
     }
-    let mut widths = [0usize; 7];
+    let mut widths = [0usize; 8];
     for r in &rows {
         for (i, c) in r.iter().enumerate() {
             widths[i] = widths[i].max(c.chars().count());
@@ -74,13 +78,31 @@ pub fn run() -> Result<i32> {
     for r in &rows {
         let mut line = String::new();
         for (i, c) in r.iter().enumerate() {
-            if i == 6 {
+            if i == 7 {
                 line.push_str(c);
             } else {
                 line.push_str(&format!("{:w$}  ", c, w = widths[i]));
             }
         }
         println!("{}", line.trim_end());
+    }
+    let doc = b.doc(&cfg);
+    if !doc.resources.is_empty() {
+        println!(
+            "resources: {}",
+            doc.resources
+                .iter()
+                .map(|r| format!("{} ({}): {}", r.name, r.owner, util::first_words(&r.rules, 8)))
+                .collect::<Vec<_>>()
+                .join("; ")
+        );
+    }
+    if !doc.pending.is_empty() {
+        println!(
+            "{} decision(s) pending: `crew board --pending`{}",
+            doc.pending.len(),
+            super::ask::link_suffix(&b)
+        );
     }
     Ok(0)
 }

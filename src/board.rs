@@ -1,6 +1,7 @@
 //! The board: one Markdown file in one repository, appended through a small clone of its own.
 
 use crate::config::{Config, Identity, Role};
+use crate::sections::Doc;
 use crate::util::{self, git, git_raw, git_raw_env, GIT_LIMIT};
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
@@ -131,54 +132,67 @@ impl Board {
         self.file().is_file()
     }
 
-    /// Append one note as `role`, commit and push; three attempts, each on a fresh fetch.
-    pub fn append(&self, cfg: &Config, role: &str, text: &str) -> Result<String> {
-        let line = note_line(role, text);
-        let mut last_err = String::new();
-        for _attempt in 0..3 {
-            self.refresh(GIT_LIMIT)?;
-            let mut content = self.read();
-            if !content.contains(STATUS_HEADING) {
-                content = render_header(&cfg.crew.name, &cfg.roles, &self.path);
-            }
-            if !content.ends_with('\n') {
-                content.push('\n');
-            }
-            content.push_str(&line);
-            content.push('\n');
-            self.write_commit(&content, &format!("board: {role}"))?;
-            let pushed = self.push()?;
-            if pushed.ok() {
-                return Ok(line);
-            }
-            last_err = util::one_line(&pushed.stderr);
+    /// The board as sections, from the last fetched copy; a missing or headless file gets the header.
+    pub fn doc(&self, cfg: &Config) -> Doc {
+        let content = self.read();
+        if content.contains(STATUS_HEADING) {
+            Doc::parse(&content)
+        } else {
+            Doc::parse(&render_header(&cfg.crew.name, &cfg.roles, &self.path))
         }
-        bail!("could not push the note after 3 attempts: {last_err}");
     }
 
-    /// Rewrite the part before `## Status` from the configuration, keeping every note.
-    pub fn sync_roles(&self, cfg: &Config) -> Result<bool> {
+    /// Change the board and push: fetch, apply `mutate` to the sections, record any decision ticked
+    /// on the forge as a note, commit, push; three attempts, each on a fresh fetch. Returns the
+    /// notes written for ticked decisions, or None when `mutate` reported nothing to change.
+    pub fn write(
+        &self,
+        cfg: &Config,
+        message: &str,
+        mut mutate: impl FnMut(&mut Doc) -> Result<bool>,
+    ) -> Result<Option<Vec<String>>> {
         let mut last_err = String::new();
         for _attempt in 0..3 {
             self.refresh(GIT_LIMIT)?;
-            let old = self.read();
-            let notes = match old.find(STATUS_HEADING) {
-                Some(i) => old[i + STATUS_HEADING.len()..].trim_start_matches('\n').to_string(),
-                None => String::new(),
-            };
-            let mut content = render_header(&cfg.crew.name, &cfg.roles, &self.path);
-            content.push_str(&notes);
-            if content == old {
-                return Ok(false);
+            let mut doc = self.doc(cfg);
+            // A box ticked on the forge came first; record it before this write's own change.
+            let ticked = doc.resolve_ticks("user");
+            let changed = mutate(&mut doc)?;
+            if !changed && ticked.is_empty() {
+                return Ok(None);
             }
-            self.write_commit(&content, "board: roles")?;
+            self.write_commit(&doc.render(), message)?;
             let pushed = self.push()?;
             if pushed.ok() {
-                return Ok(true);
+                return Ok(Some(ticked));
             }
             last_err = util::one_line(&pushed.stderr);
         }
         bail!("could not push the board after 3 attempts: {last_err}");
+    }
+
+    /// Append one note as `role`, commit and push.
+    pub fn append(&self, cfg: &Config, role: &str, text: &str) -> Result<String> {
+        let line = note_line(role, text);
+        let l = line.clone();
+        self.write(cfg, &format!("board: {role}"), move |doc| {
+            doc.notes.push(l.clone());
+            Ok(true)
+        })?;
+        Ok(line)
+    }
+
+    /// Rewrite the part before the sections from the configuration, keeping everything else.
+    pub fn sync_roles(&self, cfg: &Config) -> Result<bool> {
+        let head = Doc::parse(&render_header(&cfg.crew.name, &cfg.roles, &self.path)).head;
+        let r = self.write(cfg, "board: roles", move |doc| {
+            if doc.head == head {
+                return Ok(false);
+            }
+            doc.head = head.clone();
+            Ok(true)
+        })?;
+        Ok(r.is_some())
     }
 
     fn push(&self) -> Result<util::Output> {

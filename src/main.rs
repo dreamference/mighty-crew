@@ -5,6 +5,7 @@ mod agent;
 mod board;
 mod commands;
 mod config;
+mod sections;
 mod util;
 
 use clap::{Parser, Subcommand};
@@ -58,6 +59,65 @@ enum Cmd {
         /// Only the `decision:` notes
         #[arg(long)]
         decisions: bool,
+        /// The decisions still waiting for an answer
+        #[arg(long)]
+        pending: bool,
+    },
+    /// Post a decision for the user on the board (`## Decisions pending`)
+    Ask {
+        question: String,
+        /// The options, comma-separated (repeatable)
+        #[arg(long, required = true, value_name = "A,B,C")]
+        options: Vec<String>,
+        /// The option to recommend
+        #[arg(long, value_name = "OPTION")]
+        recommend: Option<String>,
+        /// Ask as this role
+        #[arg(long = "as", value_name = "ROLE")]
+        as_role: Option<String>,
+    },
+    /// Record the choice on a pending decision as a `decision:` note
+    Answer {
+        id: String,
+        option: String,
+        /// Answer as this role (default: the tree you are in, else `user`)
+        #[arg(long = "as", value_name = "ROLE")]
+        as_role: Option<String>,
+    },
+    /// Say what you are doing right now (no text: show every role's line)
+    Now {
+        #[arg(trailing_var_arg = true)]
+        text: Vec<String>,
+        #[arg(long = "as", value_name = "ROLE")]
+        as_role: Option<String>,
+    },
+    /// Record the permission class of a session started by hand, so doctor stops asking for a restart
+    Adopt {
+        role: String,
+        /// The mode it was started in (default: the role's configured mode)
+        #[arg(long, value_name = "MODE")]
+        mode: Option<String>,
+    },
+    /// Declare a shared resource and its rules on the board (no arguments: list them)
+    Resource {
+        name: Option<String>,
+        #[arg(trailing_var_arg = true)]
+        rules: Vec<String>,
+        #[arg(long = "as", value_name = "ROLE")]
+        as_role: Option<String>,
+    },
+    /// Hand a file or directory to another role through the neutral folder under the cache
+    Handoff {
+        role: String,
+        path: String,
+        #[arg(long = "as", value_name = "ROLE")]
+        as_role: Option<String>,
+    },
+    /// From a clone to a live crew: create missing worktrees, open every role (tmux, windows, or the lines to run)
+    Up {
+        /// Fresh conversations instead of continuing each directory's last one
+        #[arg(long)]
+        new: bool,
     },
     /// Append a dated line as the role whose tree you are in
     Note {
@@ -105,10 +165,31 @@ fn main() {
             for_role,
             tag,
             decisions,
+            pending,
         } => {
             let tag = if decisions { Some("decision".to_string()) } else { tag };
-            commands::board::run(n, all, sync_roles, cached, for_role.as_deref(), tag.as_deref())
+            commands::board::run(n, all, sync_roles, cached, pending, for_role.as_deref(), tag.as_deref())
         }
+        Cmd::Ask {
+            question,
+            options,
+            recommend,
+            as_role,
+        } => commands::ask::run(&question, &options, recommend.as_deref(), as_role.as_deref()),
+        Cmd::Answer { id, option, as_role } => commands::answer::run(&id, &option, as_role.as_deref()),
+        Cmd::Now { text, as_role } => {
+            let joined = text.join(" ");
+            commands::now::run(
+                if text.is_empty() { None } else { Some(joined.as_str()) },
+                as_role.as_deref(),
+            )
+        }
+        Cmd::Adopt { role, mode } => commands::adopt::run(&role, mode.as_deref()),
+        Cmd::Resource { name, rules, as_role } => {
+            commands::resource::run(name.as_deref(), &rules.join(" "), as_role.as_deref())
+        }
+        Cmd::Handoff { role, path, as_role } => commands::handoff::run(&role, &path, as_role.as_deref()),
+        Cmd::Up { new } => commands::up::run(new),
         Cmd::Note { as_role, text } => commands::note::run(as_role.as_deref(), &text.join(" ")),
         Cmd::Msg { role, text } => commands::msg::run(&role, &text.join(" ")),
         Cmd::Status => commands::status::run(),

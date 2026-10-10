@@ -53,7 +53,7 @@ pub fn run(role_name: &str, fresh: bool, create: bool) -> Result<i32> {
 }
 
 /// The tree exists, is a git checkout and is this role's; or it is created when configured and asked for.
-fn ensure_tree(cfg: &Config, role: &Role, create: bool) -> Result<()> {
+pub fn ensure_tree(cfg: &Config, role: &Role, create: bool) -> Result<()> {
     if role.tree.is_dir() {
         if !git_ok(&role.tree, &["rev-parse", "--is-inside-work-tree"]) {
             bail!("{} is not a git checkout", role.tree_text);
@@ -168,7 +168,24 @@ fn print_board(cfg: &Config) {
 }
 
 /// Remember how the role was started, so `crew doctor` can compare it with the configuration.
+pub fn record(role: &Role, mode: &str) -> Result<()> {
+    let dir = util::cache_dir()?.join("started");
+    std::fs::create_dir_all(&dir)?;
+    let text = format!(
+        "tree = {:?}\npermission_mode = {:?}\n",
+        role.tree.to_string_lossy(),
+        mode
+    );
+    std::fs::write(dir.join(&role.name), text)?;
+    Ok(())
+}
+
 fn record_start(role: &Role) -> Result<()> {
+    record(role, &role.permission_mode)
+}
+
+#[allow(dead_code)]
+fn record_start_old(role: &Role) -> Result<()> {
     let dir = util::cache_dir()?.join("started");
     std::fs::create_dir_all(&dir)?;
     let text = format!(

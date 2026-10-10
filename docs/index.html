@@ -84,8 +84,8 @@ crew status               <span class="c"># every role: tree, branch, head, runn
   <p class="fine">Lines from the first day the crew ran, 2026-10-10, four roles on one machine.</p>
 
   <h2>Install</h2>
-<pre><code><span class="c"># Linux arm64: the release binary</span>
-curl -L https://github.com/dreamference/mighty-crew/releases/latest/download/crew-0.1.1-linux-aarch64.tar.gz | tar -xz -C ~/.local/bin
+<pre><code><span class="c"># Linux and macOS: the release binary into ~/.local/bin (Windows: install.ps1)</span>
+curl -fsSL https://raw.githubusercontent.com/dreamference/mighty-crew/main/install.sh | sh
 
 <span class="c"># anywhere else: from source (Rust stable)</span>
 git clone https://github.com/dreamference/mighty-crew.git &amp;&amp; cd mighty-crew
@@ -104,9 +104,14 @@ crew doctor            <span class="c"># what is missing, with the fix</span></c
     <tr><td><code>crew board</code></td><td>The board's last lines; <code>--for &lt;role&gt;</code>, <code>--tag done</code>, <code>--decisions</code>.</td></tr>
     <tr><td><code>crew note "…"</code></td><td>Append a dated line as the role whose tree you are in.</td></tr>
     <tr><td><code>crew msg &lt;role&gt; "…"</code></td><td>Send a line to that role's running session, with its twin on the board first.</td></tr>
-    <tr><td><code>crew status</code></td><td>Every role: tree, branch, head, session state, commits since its last note, last note.</td></tr>
+    <tr><td><code>crew status</code></td><td>Every role: tree, branch, head, session state, commits since its last note, what it is doing now, last note.</td></tr>
     <tr><td><code>crew doctor</code></td><td>The configuration, the trees, the sessions, the board, the hook, each finding with its fix.</td></tr>
     <tr><td><code>crew install-hook</code></td><td>The SessionStart hook that prints the board, and the <code>/crew</code> skill.</td></tr>
+    <tr><td><code>crew ask "…" --options a,b,c</code></td><td>A decision for you, on the board: answer with <code>crew answer &lt;id&gt; &lt;option&gt;</code>, or tick the box on GitHub from your phone; <code>crew board --pending</code> lists them.</td></tr>
+    <tr><td><code>crew now "…"</code></td><td>What a role is doing right now; <code>crew status</code> shows it.</td></tr>
+    <tr><td><code>crew resource &lt;name&gt; "…"</code></td><td>A shared resource and its rules, on the board where every role reads them.</td></tr>
+    <tr><td><code>crew handoff &lt;role&gt; &lt;path&gt;</code></td><td>Data for another role through a neutral folder, never its tree.</td></tr>
+    <tr><td><code>crew up</code></td><td>From a clone to a live crew: every role in a tmux window, or a terminal each.</td></tr>
   </table>
 
   <h2>What it is not</h2>

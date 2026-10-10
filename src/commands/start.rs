@@ -4,7 +4,6 @@ use crate::config::{Config, Role};
 use crate::util::{self, git, git_ok, git_raw, GIT_LIMIT};
 use anyhow::{bail, Result};
 use std::io::Write;
-use std::os::unix::process::CommandExt;
 use std::time::Duration;
 
 pub fn run(role_name: &str, fresh: bool, create: bool) -> Result<i32> {
@@ -37,8 +36,20 @@ pub fn run(role_name: &str, fresh: bool, create: bool) -> Result<i32> {
     }
     let _ = std::io::stdout().flush();
     let mut cmd = agent::start_command(role, resume);
-    let err = cmd.exec();
-    bail!("cannot run {}: {err}", role.command);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let err = cmd.exec();
+        bail!("cannot run {}: {err}", role.command);
+    }
+    #[cfg(not(unix))]
+    {
+        // No exec on Windows: run the agent as a child and leave with its exit code.
+        let status = cmd
+            .status()
+            .map_err(|e| anyhow::anyhow!("cannot run {}: {e}", role.command))?;
+        Ok(status.code().unwrap_or(1))
+    }
 }
 
 /// The tree exists, is a git checkout and is this role's; or it is created when configured and asked for.

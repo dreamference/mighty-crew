@@ -1,3 +1,4 @@
+use crate::activity;
 use crate::agent;
 use crate::board::{self, Board};
 use crate::config::Config;
@@ -21,6 +22,8 @@ impl Report {
         println!("warn {what}: {why}");
     }
 }
+
+const QUIET_MINUTES: i64 = 90;
 
 pub fn run() -> Result<i32> {
     let mut r = Report { problems: 0 };
@@ -83,9 +86,11 @@ pub fn run() -> Result<i32> {
             ),
         }
     }
+    let mut listings: std::collections::HashMap<String, Vec<agent::Session>> = std::collections::HashMap::new();
     for c in &commands {
         match agent::list_sessions(c) {
             Ok(sessions) => {
+                listings.insert(c.to_string(), sessions.clone());
                 for role in cfg.roles.iter().filter(|r| r.command == *c) {
                     if let Some(s) = agent::session_in(&sessions, &role.tree) {
                         match super::start::recorded_mode(role) {
@@ -103,7 +108,14 @@ pub fn run() -> Result<i32> {
                         }
                     }
                 }
-                for s in sessions.iter().filter(|s| s.kind == "interactive") {
+                let relays = sessions.iter().filter(|s| s.is_relay()).count();
+                if relays > 0 {
+                    r.ok(&format!(
+                        "{relays} relay session(s) of `crew msg` in flight ({}), not roles",
+                        agent::RELAY_NAME
+                    ));
+                }
+                for s in sessions.iter().filter(|s| s.kind == "interactive" && !s.is_relay()) {
                     let dir = std::path::Path::new(&s.cwd);
                     if cfg.role_for(dir).is_none() {
                         r.fix(
@@ -136,6 +148,27 @@ pub fn run() -> Result<i32> {
                         board::status_lines(&b.read()).len()
                     ));
                     let content = b.read();
+                    let now = chrono::Local::now();
+                    for role in &cfg.roles {
+                        let busy = listings
+                            .get(&role.command)
+                            .and_then(|l| agent::session_in(l, &role.tree))
+                            .map(|s| s.status.as_deref() == Some("busy"))
+                            .unwrap_or(false);
+                        if !busy {
+                            continue;
+                        }
+                        let last = board::last_note(&content, &role.name)
+                            .and_then(board::parse_note)
+                            .map(|(w, _, _)| w);
+                        let a = activity::for_tree(&role.tree, last, now);
+                        if activity::is_quiet(&a, QUIET_MINUTES) {
+                            r.warn(
+                                &format!("role {}: its session is busy with neither a note nor a commit in {QUIET_MINUTES} minutes ({})", role.name, activity::describe(&a)),
+                                "ask it for a one-line status, or wait for its hand-off",
+                            );
+                        }
+                    }
                     let mut prev = "";
                     for l in board::status_lines(&content) {
                         if let Some((when, _, _)) = board::parse_note(l) {

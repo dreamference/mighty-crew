@@ -1,3 +1,4 @@
+use crate::activity;
 use crate::agent;
 use crate::board::{self, Board};
 use crate::config::Config;
@@ -16,12 +17,14 @@ pub fn run() -> Result<i32> {
         }
     };
     let mut listings: HashMap<String, Vec<agent::Session>> = HashMap::new();
-    let mut rows: Vec<[String; 6]> = vec![[
+    let now = chrono::Local::now();
+    let mut rows: Vec<[String; 7]> = vec![[
         "role".into(),
         "tree".into(),
         "branch".into(),
         "head".into(),
         "session".into(),
+        "activity".into(),
         "last note".into(),
     ]];
     for role in &cfg.roles {
@@ -47,12 +50,22 @@ pub fn run() -> Result<i32> {
             Some(s) => format!("{} ({})", s.describe(), s.name.as_deref().unwrap_or("unnamed")),
             None => "not running".into(),
         };
-        let note = board::last_note(&board_text, &role.name)
-            .and_then(|l| board::parse_note(l).map(|(when, _, text)| format!("{when} {}", util::first_words(text, 8))))
+        let last = board::last_note(&board_text, &role.name).and_then(board::parse_note);
+        let note = last
+            .map(|(when, _, text)| format!("{when} {}", util::first_words(text, 8)))
             .unwrap_or_else(|| "-".into());
-        rows.push([role.name.clone(), role.tree_text.clone(), branch, head, session, note]);
+        let activity = activity::describe(&activity::for_tree(&role.tree, last.map(|(when, _, _)| when), now));
+        rows.push([
+            role.name.clone(),
+            role.tree_text.clone(),
+            branch,
+            head,
+            session,
+            activity,
+            note,
+        ]);
     }
-    let mut widths = [0usize; 6];
+    let mut widths = [0usize; 7];
     for r in &rows {
         for (i, c) in r.iter().enumerate() {
             widths[i] = widths[i].max(c.chars().count());
@@ -61,7 +74,7 @@ pub fn run() -> Result<i32> {
     for r in &rows {
         let mut line = String::new();
         for (i, c) in r.iter().enumerate() {
-            if i == 5 {
+            if i == 6 {
                 line.push_str(c);
             } else {
                 line.push_str(&format!("{:w$}  ", c, w = widths[i]));

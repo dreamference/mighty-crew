@@ -10,6 +10,9 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
+/// The name of the headless session `crew msg` relays through.
+pub const RELAY_NAME: &str = "crew-msg";
+
 /// One row of `claude agents --json`.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +53,11 @@ impl Session {
         }
     }
 
+    /// The short headless session `crew msg` relays through; never a role's session.
+    pub fn is_relay(&self) -> bool {
+        self.name.as_deref() == Some(RELAY_NAME)
+    }
+
     pub fn is_live(&self) -> bool {
         !matches!(self.state.as_deref(), Some("done") | Some("failed") | Some("stopped"))
     }
@@ -76,7 +84,7 @@ pub fn session_in<'a>(sessions: &'a [Session], tree: &Path) -> Option<&'a Sessio
     let tree = util::normalize(tree);
     let mut found: Vec<&Session> = sessions
         .iter()
-        .filter(|s| util::normalize(Path::new(&s.cwd)) == tree)
+        .filter(|s| !s.is_relay() && util::normalize(Path::new(&s.cwd)) == tree)
         .collect();
     found.sort_by_key(|s| if s.kind == "interactive" { 0 } else { 1 });
     found.first().copied()
@@ -140,7 +148,7 @@ pub fn send(command: &str, permission_mode: &str, model: &str, to: &str, text: &
         "--permission-mode",
         permission_mode,
         "--name",
-        "crew-msg",
+        RELAY_NAME,
         "--model",
         model,
     ]);
@@ -178,4 +186,39 @@ pub fn send(command: &str, permission_mode: &str, model: &str, to: &str, text: &
         }
     });
     Ok((verdict.unwrap_or(Delivery::Refused), util::one_line(&report)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_dir_name_replaces_every_other_character() {
+        assert_eq!(
+            project_dir_name(Path::new("/home/u/w/.claude/worktrees/product")),
+            "-home-u-w--claude-worktrees-product"
+        );
+        assert_eq!(project_dir_name(Path::new("/a b/c_d")), "-a-b-c-d");
+    }
+
+    #[test]
+    fn listing_rows_describe_themselves() {
+        let rows: Vec<Session> = serde_json::from_str(
+            r#"[{"cwd":"/t","kind":"interactive","status":"waiting","waitingFor":"permission prompt","pid":1},
+                {"cwd":"/t","kind":"background","state":"working","id":"a"},
+                {"cwd":"/t","kind":"background","state":"done","id":"b"},
+                {"cwd":"/u","kind":"interactive"}]"#,
+        )
+        .unwrap();
+        assert_eq!(rows[0].describe(), "waiting (permission prompt)");
+        assert_eq!(rows[1].describe(), "working");
+        assert!(!rows[2].is_live());
+        assert_eq!(rows[3].describe(), "running");
+        let live: Vec<Session> = rows.into_iter().filter(Session::is_live).collect();
+        assert_eq!(live.len(), 3);
+        // An interactive row wins over a background one in the same tree.
+        let s = session_in(&live, Path::new("/t")).unwrap();
+        assert_eq!(s.kind, "interactive");
+        assert!(session_in(&live, Path::new("/nowhere")).is_none());
+    }
 }

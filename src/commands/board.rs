@@ -3,7 +3,14 @@ use crate::config::Config;
 use crate::util::GIT_LIMIT;
 use anyhow::Result;
 
-pub fn run(n: usize, all: bool, sync_roles: bool, cached: bool, for_role: Option<&str>) -> Result<i32> {
+pub fn run(
+    n: usize,
+    all: bool,
+    sync_roles: bool,
+    cached: bool,
+    for_role: Option<&str>,
+    tag: Option<&str>,
+) -> Result<i32> {
     let cfg = Config::load()?;
     let b = Board::new(&cfg)?;
     if sync_roles {
@@ -30,27 +37,32 @@ pub fn run(n: usize, all: bool, sync_roles: bool, cached: bool, for_role: Option
         );
         return Ok(0);
     }
-    let lines = match for_role {
-        Some(r) => {
+    let tag = tag.map(|t| t.trim_end_matches(':'));
+    let mut lines = match (for_role, tag) {
+        (Some(r), _) => {
             cfg.role(r)?;
-            let mine = board::lines_for(&content, r);
-            if all {
-                mine
-            } else {
-                mine.into_iter()
-                    .rev()
-                    .take(n)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect()
+            let mut mine = board::lines_for(&content, r);
+            if let Some(t) = tag {
+                mine.retain(|l| board::parse_note(l).and_then(|(_, _, text)| board::tag_of(text)) == Some(t));
             }
+            mine
         }
-        None if all => board::status_lines(&content),
-        None => board::tail(&content, n),
+        (None, Some(t)) => board::lines_tagged(&content, t),
+        (None, None) => board::status_lines(&content),
     };
+    if !all {
+        let skip = lines.len().saturating_sub(n);
+        lines = lines.into_iter().skip(skip).collect();
+    }
     if lines.is_empty() {
-        println!("(no notes yet)");
+        println!(
+            "{}",
+            if tag.is_some() || for_role.is_some() {
+                "(no matching notes)"
+            } else {
+                "(no notes yet)"
+            }
+        );
     }
     for l in lines {
         println!("{l}");

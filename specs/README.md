@@ -4,7 +4,7 @@ One document per area, in the house style of Mightling's `specs/` (a header with
 
 | Document | What it covers |
 | --- | --- |
-| [DREAMFERENCE_MIGHTY_CREW.md](./DREAMFERENCE_MIGHTY_CREW.md) | The MVP: the problem, the model (crew, role, tree, board, note, message), the user's day, the board, the command line, configuration, messaging policy, reboot and recovery, acceptance, non-goals, open questions, the crate as it stands |
+| [DREAMFERENCE_MIGHTY_CREW.md](./DREAMFERENCE_MIGHTY_CREW.md) | The MVP: the problem, the model (crew, role, tree, board, note, message), the user's day, the board, the command line, configuration, messaging policy, reboot and recovery, acceptance, non-goals, open questions, the crate as it stands, the first day's lessons with their incidents |
 | [DREAMFERENCE_MIGHTY_CREW_GROWTH.md](./DREAMFERENCE_MIGHTY_CREW_GROWTH.md) | How the product spreads, after the MVP: the board that names its keeper, a repository that carries its crew, the digest, the offline demo, a view for a screen, numbers from the board, a crew that reads another's board; each a dated proposal with the line that says it is done |
 
 The prototype the specification was written from is in [`../prototype/`](../prototype/): `session` (the launcher), `session-note` (the board writer) and `session-board-hook` (the start-time board print), as run by hand on 2026-10-10.

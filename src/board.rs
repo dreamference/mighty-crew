@@ -268,6 +268,30 @@ pub fn lines_for<'a>(content: &'a str, role: &str) -> Vec<&'a str> {
         .collect()
 }
 
+/// The tag a note's text starts with (`decision:`, `done:`, `blocked:`, `heads-up:`; `to <role>:` as `to`), if any.
+pub fn tag_of(text: &str) -> Option<&str> {
+    let mut words = text.split_whitespace();
+    let word = words.next()?;
+    if let Some(t) = word.strip_suffix(':') {
+        if !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+            return Some(t);
+        }
+    }
+    if word == "to" && words.next().map(|r| r.ends_with(':')).unwrap_or(false) {
+        return Some("to");
+    }
+    None
+}
+
+/// The notes whose text carries `tag`.
+#[allow(dead_code)]
+pub fn lines_tagged<'a>(content: &'a str, tag: &str) -> Vec<&'a str> {
+    status_lines(content)
+        .into_iter()
+        .filter(|l| parse_note(l).and_then(|(_, _, text)| tag_of(text)) == Some(tag))
+        .collect()
+}
+
 /// The last note written by `role`, if any.
 pub fn last_note<'a>(content: &'a str, role: &str) -> Option<&'a str> {
     status_lines(content)
@@ -296,4 +320,96 @@ pub fn render_header(crew: &str, roles: &[Role], path: &str) -> String {
     }
     s.push_str(&format!("\n{STATUS_HEADING}\n\n"));
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &str = "# t\n\n| role |\n\n## Status\n\n- 2026-10-10 09:00 operations: seed\n\n- 2026-10-10 09:05 product: to engine: look\n- 2026-10-10 09:06 engine: done\nnot a note\n";
+
+    #[test]
+    fn slug_takes_the_last_component() {
+        assert_eq!(slug("https://github.com/dreamference/mightling.git"), "mightling");
+        assert_eq!(slug("git@github.com:dreamference/mightling.git"), "mightling");
+        assert_eq!(slug("/tmp/board.git/"), "board");
+        assert_eq!(slug("weird name!"), "weird-name-");
+        assert_eq!(slug(""), "board");
+    }
+
+    #[test]
+    fn notes_parse_and_filter() {
+        assert_eq!(
+            parse_note("- 2026-10-10 09:05 product: to engine: look"),
+            Some(("2026-10-10 09:05", "product", "to engine: look"))
+        );
+        assert_eq!(parse_note("not a note"), None);
+        assert_eq!(parse_note("- 2026-10-10 operations: no time"), None);
+        assert_eq!(status_lines(SAMPLE).len(), 4);
+        assert_eq!(tail(SAMPLE, 2), vec!["- 2026-10-10 09:06 engine: done", "not a note"]);
+        assert_eq!(tail(SAMPLE, 99).len(), 4);
+        assert_eq!(last_note(SAMPLE, "engine"), Some("- 2026-10-10 09:06 engine: done"));
+        assert_eq!(last_note(SAMPLE, "crew"), None);
+        assert_eq!(lines_for(SAMPLE, "engine").len(), 2);
+        assert_eq!(
+            lines_for(SAMPLE, "operations"),
+            vec!["- 2026-10-10 09:00 operations: seed"]
+        );
+        assert!(status_lines("no heading here").is_empty());
+    }
+
+    #[test]
+    fn note_line_has_the_shape() {
+        let l = note_line("crew", " two\nlines ");
+        assert!(
+            parse_note(&l)
+                .map(|(_, r, t)| r == "crew" && t == "two lines")
+                .unwrap_or(false),
+            "{l}"
+        );
+    }
+
+    #[test]
+    fn header_lists_roles_and_escapes_pipes() {
+        let roles = vec![Role {
+            name: "ops".into(),
+            tree_text: "~/x".into(),
+            tree: PathBuf::from("/x"),
+            worktree_of: None,
+            branch: None,
+            owns: "a | b".into(),
+            command: "claude".into(),
+            permission_mode: "bypassPermissions".into(),
+            dispatcher: false,
+        }];
+        let h = render_header("c", &roles, "docs/b.md");
+        assert!(h.starts_with("# c: the crew's board\n\n"));
+        assert!(h.contains("| ops | `~/x` | a \\| b |\n"));
+        assert!(h.ends_with("\n## Status\n\n"));
+        assert!(h.contains("`docs/b.md`"));
+    }
+}
+
+#[cfg(test)]
+mod tag_tests {
+    use super::*;
+
+    #[test]
+    fn tags_are_the_first_word() {
+        assert_eq!(tag_of("decision: both stay"), Some("decision"));
+        assert_eq!(tag_of("heads-up: at 17:00"), Some("heads-up"));
+        assert_eq!(tag_of("to engine: look"), Some("to"));
+        assert_eq!(tag_of("to engine look"), None);
+        assert_eq!(tag_of("plain text: later"), None);
+        assert_eq!(tag_of(": nothing"), None);
+        assert_eq!(tag_of(""), None);
+        assert_eq!(
+            lines_tagged(
+                "## Status\n- 2026-10-10 09:00 a: done: x\n- 2026-10-10 09:01 b: y\n",
+                "done"
+            )
+            .len(),
+            1
+        );
+    }
 }

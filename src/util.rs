@@ -8,6 +8,13 @@ use std::time::{Duration, Instant};
 /// The user's home directory, from `HOME`.
 pub fn home() -> Result<PathBuf> {
     std::env::var_os("HOME")
+        .or_else(|| {
+            if cfg!(windows) {
+                std::env::var_os("USERPROFILE")
+            } else {
+                None
+            }
+        })
         .map(PathBuf::from)
         .filter(|p| !p.as_os_str().is_empty())
         .ok_or_else(|| anyhow!("HOME is not set"))
@@ -94,20 +101,37 @@ pub fn display_path(p: &Path) -> String {
 
 /// The first directory on `PATH` holding an executable of that name, or the path itself.
 pub fn which(cmd: &str) -> Option<PathBuf> {
-    use std::os::unix::fs::PermissionsExt;
-    let executable = |p: &Path| {
+    #[cfg(unix)]
+    fn executable(p: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
         p.is_file()
             && p.metadata()
                 .map(|m| m.permissions().mode() & 0o111 != 0)
                 .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    fn executable(p: &Path) -> bool {
+        p.is_file()
+    }
+    // On Windows a command name resolves through PATHEXT (`claude.cmd`, `crew.exe`).
+    let suffixes: Vec<String> = if cfg!(windows) {
+        let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".into());
+        std::iter::once(String::new())
+            .chain(exts.split(';').map(|e| e.to_string()))
+            .collect()
+    } else {
+        vec![String::new()]
     };
-    if cmd.contains('/') {
+    if cmd.contains('/') || cmd.contains('\\') {
         let p = expand_tilde(cmd).ok()?;
-        return executable(&p).then_some(p);
+        return suffixes
+            .iter()
+            .map(|x| PathBuf::from(format!("{}{x}", p.display())))
+            .find(|p| executable(p));
     }
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
-        .map(|d| d.join(cmd))
+        .flat_map(|d| suffixes.iter().map(move |x| d.join(format!("{cmd}{x}"))))
         .find(|p| executable(p))
 }
 
@@ -210,4 +234,72 @@ pub fn first_words(s: &str, n: usize) -> String {
         out.push('…');
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_line_folds_whitespace() {
+        assert_eq!(one_line("  a \n\n b\t c  "), "a b c");
+        assert_eq!(one_line(""), "");
+    }
+
+    #[test]
+    fn first_words_marks_the_cut() {
+        assert_eq!(first_words("one two three", 2), "one two…");
+        assert_eq!(first_words("one two", 2), "one two");
+        assert_eq!(first_words("", 3), "");
+    }
+
+    #[test]
+    fn normalize_resolves_dots_lexically_for_missing_paths() {
+        assert_eq!(normalize(Path::new("/a/b/../c/./d")), PathBuf::from("/a/c/d"));
+        assert_eq!(normalize(Path::new("/")), PathBuf::from("/"));
+    }
+
+    #[test]
+    fn run_kills_a_process_past_its_limit() {
+        let start = Instant::now();
+        let out = run(Command::new("sleep").arg("5"), Duration::from_millis(300)).unwrap();
+        assert_eq!(out.status, None);
+        assert!(start.elapsed() < Duration::from_secs(3), "took {:?}", start.elapsed());
+    }
+
+    #[test]
+    fn run_captures_both_streams_and_the_status() {
+        let out = run(
+            Command::new("sh").args(["-c", "echo out; echo err >&2; exit 3"]),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        assert_eq!(out.status, Some(3));
+        assert_eq!(out.stdout, "out\n");
+        assert_eq!(out.stderr, "err\n");
+        assert!(!out.ok());
+        assert!(run(&mut Command::new("/nonexistent/program"), Duration::from_secs(1)).is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn which_finds_executables_on_path_and_by_path() {
+        let dir = std::env::temp_dir().join(format!("crew-which-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("thing");
+        std::fs::write(&exe, "#!/bin/sh\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(dir.join("plain"), "").unwrap();
+        let saved = std::env::var_os("PATH");
+        std::env::set_var("PATH", &dir);
+        assert_eq!(which("thing"), Some(exe.clone()));
+        assert_eq!(which("plain"), None);
+        assert_eq!(which("missing"), None);
+        assert_eq!(which(exe.to_str().unwrap()), Some(exe.clone()));
+        if let Some(p) = saved {
+            std::env::set_var("PATH", p);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

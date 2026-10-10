@@ -1,5 +1,6 @@
 //! `crew`: a crew of coding-agent sessions on one codebase.
 
+mod activity;
 mod agent;
 mod board;
 mod commands;
@@ -51,6 +52,12 @@ enum Cmd {
         /// Only the lines written by this role or addressed to it (`to <role>: …`)
         #[arg(long = "for", value_name = "ROLE")]
         for_role: Option<String>,
+        /// Only the notes whose text starts with this tag (`decision`, `done`, `blocked`, `heads-up`, `to`)
+        #[arg(long, value_name = "TAG", conflicts_with = "decisions")]
+        tag: Option<String>,
+        /// Only the `decision:` notes
+        #[arg(long)]
+        decisions: bool,
     },
     /// Append a dated line as the role whose tree you are in
     Note {
@@ -96,7 +103,12 @@ fn main() {
             sync_roles,
             cached,
             for_role,
-        } => commands::board::run(n, all, sync_roles, cached, for_role.as_deref()),
+            tag,
+            decisions,
+        } => {
+            let tag = if decisions { Some("decision".to_string()) } else { tag };
+            commands::board::run(n, all, sync_roles, cached, for_role.as_deref(), tag.as_deref())
+        }
         Cmd::Note { as_role, text } => commands::note::run(as_role.as_deref(), &text.join(" ")),
         Cmd::Msg { role, text } => commands::msg::run(&role, &text.join(" ")),
         Cmd::Status => commands::status::run(),

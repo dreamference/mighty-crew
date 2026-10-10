@@ -57,6 +57,30 @@ Done when the counts equal those of the board's lines.
 
 Done when a note on either board is printed at the next `crew start` of a role in the other crew.
 
-## 8. Order
+## 8. `crew up`: a clone becomes a crew in one command
 
-The order is the order of effect for the cost: §1 and §2 are a line and a file; §3 and §4 are an afternoon each; §5, §6 and §7 wait for a crew that asks for them. A proposal that is built moves to the MVP document with its date and its measured result.
+(2026-10-10.) crewAI spread on a sixty-second path: `crewai create crew` writes the roles, `crewai run` runs them, and an examples repository gives something to clone. This document has the first half (§2, a repository ships `.crew/roles.toml`) and the offline first contact (§4), and nothing that plays the part of `run`: today a stranger who clones a repository that carries a crew still runs `crew init`, then `crew start` once per role in a terminal of their own. `crew up` is that one command.
+
+`crew up [--new]`: for every role of the configuration, in the order written, creates the worktree when it is missing and configured (`worktree_of` and `branch`, as `crew start --create` does), then opens every role at once and attaches:
+
+- with `tmux` on `PATH`: one tmux session named after the crew (`crew.<name>`), one window per role, each running `crew start <role>` (so the live-session refusal, the fetch, the charter and the board of MVP §5 all apply), then `tmux attach`; a second `crew up` finds the session and attaches without starting anything;
+- with a display and no `tmux`: one terminal window per role, through `open`'s path (MVP §5);
+- with neither: the `crew start` lines to run, one per role, and exit 0.
+
+`up` opens sessions and assigns nothing: a crew has no lead (MVP, "three things to know"), and the charters and the board do the rest. There is no `crew down`: the product never ends a session (MVP §10.4); the user closes windows, and `crew note` is the hand-off. `up` adds no dependency: `tmux`, when present, is run through `std::process` like git and the agent, and the layout is the one MVP §10.9 already names.
+
+The public artifact is one line in the README of any repository that carries a crew:
+
+```bash
+git clone https://github.com/<owner>/<repo>.git && cd <repo> && crew init && crew up
+```
+
+That line is the loop: a reader of the board on the forge (§1) sees the crew, clones the repository, and is in it in a minute. It is also what a screencast shows, before `crew watch` (§5) exists. Mixed crews, where one role runs Claude Code and another runs `ling` or any agent with a launcher (MVP §10.1), make the same line worth more later; `up` does not depend on them.
+
+Effort: a day or two on the MVP's own pieces (`start`, `--create`, `open`, the session listing) and `tmux new-session`, `new-window`, `has-session` and `attach`. Sequenced after the decisions queue (MVP §10.10), which the first day's evidence put first.
+
+Done when a fresh clone of a repository that ships `.crew/roles.toml`, followed by `crew init` and `crew up`, gives one tmux window per role, each session named after its role and starting with the board in its context, in under a minute from the clone to the last session's prompt, measured on one machine with the agent's time counted.
+
+## 9. Order
+
+The order is the order of effect for the cost: §1 and §2 are a line and a file; §3 and §4 are an afternoon each; §8 is a day or two and is the first thing a stranger runs, so it comes right after §2; §5, §6 and §7 wait for a crew that asks for them. A proposal that is built moves to the MVP document with its date and its measured result.

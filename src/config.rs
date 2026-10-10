@@ -97,6 +97,7 @@ struct Raw {
     agent: AgentSection,
     #[serde(default)]
     terminal: TerminalSection,
+    #[serde(default)]
     roles: toml::Table,
 }
 
@@ -285,4 +286,68 @@ pub fn render_initial(
          # branch = \"work/product\"\n\
          # owns = \"the product's code, tests, specs and docs\"\n"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MIN: &str = "[crew]\nname = \"c\"\n[board]\nrepo = \"r\"\n[roles.a]\ntree = \"/x/a\"\n[roles.b]\ntree = \"/x/a/b\"\nowns = \"inner\"\n";
+
+    #[test]
+    fn defaults_and_order() {
+        let c = Config::parse(MIN, Path::new("/cfg")).unwrap();
+        assert_eq!(c.board.path, "docs/dev/sessions.md");
+        assert_eq!(c.board.branch, "main");
+        assert_eq!(c.agent.command, "claude");
+        assert_eq!(c.agent.permission_mode, "bypassPermissions");
+        assert_eq!(c.agent.msg_model, "haiku");
+        assert_eq!(c.role_names(), vec!["a", "b"]);
+        assert!(c.off_class_roles().is_empty());
+        assert!(c.board.identity.is_none());
+    }
+
+    #[test]
+    fn the_deepest_tree_wins() {
+        let c = Config::parse(MIN, Path::new("/cfg")).unwrap();
+        assert_eq!(c.role_for(Path::new("/x/a/b/c")).unwrap().name, "b");
+        assert_eq!(c.role_for(Path::new("/x/a/other")).unwrap().name, "a");
+        assert!(c.role_for(Path::new("/y")).is_none());
+        assert!(c.role("zz").unwrap_err().to_string().contains("the roles are: a, b"));
+    }
+
+    #[test]
+    fn mistakes_are_named() {
+        let err = |t: &str| Config::parse(t, Path::new("/cfg")).unwrap_err().to_string();
+        assert!(
+            err(&MIN.replace("[roles.b]\ntree = \"/x/a/b\"", "[roles.b]\ntree = \"/x/a\""))
+                .contains("share the working tree")
+        );
+        assert!(err(&MIN.replace("[roles.b]", "[roles.B]")).contains("must be lowercase"));
+        assert!(err("[crew]\nname = \"c\"\n[board]\nrepo = \"r\"\n[roles]\n").contains("no roles"));
+        assert!(err(&(MIN.to_string()
+            + "[roles.d]\ntree = \"/d\"\ndispatcher = true\n[roles.e]\ntree = \"/e\"\ndispatcher = true\n"))
+        .contains("at most one role is the dispatcher"));
+        assert!(err("[board]\nrepo = \"r\"\n[roles.a]\ntree = \"/a\"\n").contains("not a valid configuration"));
+    }
+
+    #[test]
+    fn the_initial_configuration_parses() {
+        let text = render_initial(
+            "mycrew",
+            "https://x/y.git",
+            "main",
+            Some(&Identity {
+                name: "n".into(),
+                email: "e".into(),
+            }),
+            "mycrew",
+            "~/y",
+        );
+        let c = Config::parse(&text, Path::new("/cfg")).unwrap();
+        assert_eq!(c.crew.name, "mycrew");
+        assert_eq!(c.board.identity.as_ref().unwrap().name, "n");
+        assert_eq!(c.roles[0].name, "mycrew");
+        assert!(Config::parse(&render_initial("a", "b", "c", None, "a", "/a"), Path::new("/cfg")).is_ok());
+    }
 }

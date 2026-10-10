@@ -15,13 +15,14 @@ The project guide for people and coding agents working in this repository.
 | `specs/` | The specification, one document per area |
 | `prototype/` | The shell prototype (`session`, `session-note`, `session-board-hook`) |
 | `src/` | The `crew` binary (Rust, 2021 edition): `main.rs` (the command line), `config.rs`, `board.rs`, `agent.rs` (the Claude Code adapter), `util.rs`, `commands/` (one file per command) |
-| `tests/` | Integration tests: a local bare repository stands in for the board's remote, a stub for the agent |
+| `tests/` | Integration tests, one file per area with the harness in `common/`: a local bare repository stands in for the board's remote, a shell script for the agent |
 
 ## Commands
 
 ```bash
 cargo build --release          # the crew binary
 cargo test --locked            # the suite; offline, touches neither the network nor the user's home
+cargo clippy --all-targets --locked -- -D warnings && cargo fmt --check   # what CI runs besides the suite
 ```
 
 ## Rules

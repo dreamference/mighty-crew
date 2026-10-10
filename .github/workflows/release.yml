@@ -1,0 +1,65 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach binaries to (built from this ref)"
+        required: true
+permissions:
+  contents: write
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,    target: x86_64-unknown-linux-musl,  archive: tar }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, archive: tar }
+          - { os: macos-latest,     target: aarch64-apple-darwin,       archive: tar }
+          - { os: macos-13,         target: x86_64-apple-darwin,        archive: tar }
+          - { os: windows-latest,   target: x86_64-pc-windows-msvc,     archive: zip }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
+      - name: build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: package (tar)
+        if: matrix.archive == 'tar'
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          NAME="crew-${TAG#v}-${{ matrix.target }}"
+          mkdir -p dist/$NAME
+          cp target/${{ matrix.target }}/release/crew README.md LICENSE dist/$NAME/
+          tar -C dist -czf dist/$NAME.tar.gz $NAME
+          (cd dist && shasum -a 256 $NAME.tar.gz > $NAME.tar.gz.sha256)
+          echo "ASSET=dist/$NAME.tar.gz" >> $GITHUB_ENV
+      - name: package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $name = "crew-" + $tag.TrimStart("v") + "-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/crew.exe", "README.md", "LICENSE" "dist/$name/"
+          Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
+          $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
+          "ASSET=dist/$name.zip" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+      - name: upload to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "crew ${TAG#v}" --notes "Prebuilt binaries for Linux, macOS and Windows; see README.md for the one-line install."
+          gh release upload "$TAG" "$ASSET" "$ASSET.sha256" --clobber

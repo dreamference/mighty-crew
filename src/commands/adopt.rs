@@ -10,7 +10,7 @@ pub fn run(role_name: &str, mode: Option<&str>) -> Result<i32> {
     let mode = mode.unwrap_or(&role.permission_mode);
     let running = agent::list_sessions(&role.command)
         .ok()
-        .and_then(|l| agent::session_in(&l, &role.tree).map(|s| s.name.clone().unwrap_or_default()));
+        .and_then(|l| agent::session_in_any(&l, &role.trees).map(|s| s.name.clone().unwrap_or_default()));
     let Some(name) = running else {
         bail!(
             "no session is running in {}; `crew start {}` records the class itself",

@@ -90,6 +90,11 @@ pub fn session_in<'a>(sessions: &'a [Session], tree: &Path) -> Option<&'a Sessio
     found.first().copied()
 }
 
+/// The live session in any of a role's trees: the main tree first, then the others.
+pub fn session_in_any<'a>(sessions: &'a [Session], trees: &[std::path::PathBuf]) -> Option<&'a Session> {
+    trees.iter().find_map(|t| session_in(sessions, t))
+}
+
 /// The project directory name Claude Code derives from a working directory.
 pub fn project_dir_name(tree: &Path) -> String {
     tree.to_string_lossy()

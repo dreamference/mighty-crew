@@ -22,7 +22,7 @@ pub fn run(fresh: bool) -> Result<i32> {
         }
         let live = agent::list_sessions(&role.command)
             .ok()
-            .and_then(|l| agent::session_in(&l, &role.tree).map(|s| s.name.clone().unwrap_or_default()));
+            .and_then(|l| agent::session_in_any(&l, &role.trees).map(|s| s.name.clone().unwrap_or_default()));
         match live {
             Some(name) => println!("{}: already running ({name})", role.name),
             None => to_open.push(role),

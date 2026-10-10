@@ -47,7 +47,7 @@ pub fn run() -> Result<i32> {
                 Vec::new()
             })
         });
-        let session = match agent::session_in(sessions, &role.tree) {
+        let session = match agent::session_in_any(sessions, &role.trees) {
             Some(s) => format!("{} ({})", s.describe(), s.name.as_deref().unwrap_or("unnamed")),
             None => "not running".into(),
         };

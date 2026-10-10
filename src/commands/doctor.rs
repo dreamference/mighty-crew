@@ -92,7 +92,7 @@ pub fn run() -> Result<i32> {
             Ok(sessions) => {
                 listings.insert(c.to_string(), sessions.clone());
                 for role in cfg.roles.iter().filter(|r| r.command == *c) {
-                    if let Some(s) = agent::session_in(&sessions, &role.tree) {
+                    if let Some(s) = agent::session_in_any(&sessions, &role.trees) {
                         match super::start::recorded_mode(role) {
                             Some(m) if m == role.permission_mode => {
                                 r.ok(&format!("role {}: session {} ({}) started in {m}", role.name, s.name.as_deref().unwrap_or("unnamed"), s.describe()))
@@ -162,7 +162,7 @@ pub fn run() -> Result<i32> {
                     for role in &cfg.roles {
                         let busy = listings
                             .get(&role.command)
-                            .and_then(|l| agent::session_in(l, &role.tree))
+                            .and_then(|l| agent::session_in_any(l, &role.trees))
                             .map(|s| s.status.as_deref() == Some("busy"))
                             .unwrap_or(false);
                         if !busy {

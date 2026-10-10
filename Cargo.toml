@@ -1,6 +1,6 @@
 [package]
 name = "mighty-crew"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "A crew of coding-agent sessions on one codebase: one role per working tree, a shared chat, messages between roles."
 license = "AGPL-3.0-only"

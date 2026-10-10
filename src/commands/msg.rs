@@ -32,7 +32,7 @@ pub fn run(role: &str, text: &str) -> Result<i32> {
         .map_err(|e| anyhow::anyhow!("the chat did not take the line, so nothing was sent: {e:#}"))?;
     println!("{line}");
     let sessions = agent::list_sessions(&target.command)?;
-    let Some(session) = agent::session_in(&sessions, &target.tree) else {
+    let Some(session) = agent::session_in_any(&sessions, &target.trees) else {
         bail!(
             "no session is running in {} ({}); start one with `crew start {}`",
             target.tree_text,

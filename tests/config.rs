@@ -189,6 +189,26 @@ fn an_undeclared_worktree_under_a_tree_is_not_guessed() {
         .assert()
         .success()
         .stdout(predicates::str::contains(" product: declared now"));
+    // Declared, the session in the second tree is the role's for status and msg.
+    e.write_config(&e.default_config().replace(
+        "branch = \"work/product\"",
+        &format!("branch = \"work/product\"\ntrees = [{:?}]", stray.to_str().unwrap()),
+    ));
+    e.sessions(&session_json(&stray, "product-x", "busy"));
+    let out = String::from_utf8(e.crew().arg("status").assert().success().get_output().stdout.clone()).unwrap();
+    assert!(
+        out.lines()
+            .find(|l| l.starts_with("product"))
+            .unwrap()
+            .contains("busy (product-x)"),
+        "{out}"
+    );
+    e.crew()
+        .current_dir(&e.engine)
+        .args(["msg", "product", "hello"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("in the inbox of product (product-x)"));
     // Doctor names a session in such a checkout.
     e.sessions(&session_json(&stray, "product-x", "busy"));
     e.write_config(&e.default_config());

@@ -5,8 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to attach binaries to (built from this ref)"
+        description: "Existing release tag to attach binaries to; its commit is what gets built"
         required: true
+      only:
+        description: "Build one target only (a matrix target name); empty builds all"
+        required: false
+        default: ""
 permissions:
   contents: write
 jobs:
@@ -20,10 +24,13 @@ jobs:
           - { os: ubuntu-latest,    target: x86_64-unknown-linux-musl,  archive: tar }
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, archive: tar }
           - { os: macos-latest,     target: aarch64-apple-darwin,       archive: tar }
-          - { os: macos-13,         target: x86_64-apple-darwin,        archive: tar }
+          - { os: macos-15-intel,   target: x86_64-apple-darwin,        archive: tar }
           - { os: windows-latest,   target: x86_64-pc-windows-msvc,     archive: zip }
+    if: github.event.inputs.only == '' || github.event.inputs.only == matrix.target
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

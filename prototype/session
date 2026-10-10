@@ -1,0 +1,61 @@
+#!/bin/bash
+# Start one of the three Claude Code sessions after a reboot (or any time):
+#   session 1   operations : main checkout of mightling (nights, gate, releases, the real machine)
+#   session 2   product    : worktree .claude/worktrees/product of mightling (code, tests, specs, docs)
+#   session 3   ling-engine: ~/PycharmProjects/ling-engine (builds and tests on second-puffin)
+#   session 4   crew       : ~/PycharmProjects/mighty-crew (the Mighty Crew product: spec and prototype)
+# Each continues its most recent conversation in that directory; add --new for a fresh one.
+# Names work too: session ops | product | engine | crew.
+set -eu
+REPO=$HOME/PycharmProjects/dgxcoder
+ENGINE=$HOME/PycharmProjects/ling-engine
+CREW=$HOME/PycharmProjects/mighty-crew
+PRODUCT_WT=$REPO/.claude/worktrees/product
+
+mode=--continue
+for a in "$@"; do [ "$a" = --new ] && mode=""; done
+which=${1:-}
+
+case "$which" in
+  1|ops|operations)
+    cd "$REPO"
+    git fetch -q origin || true
+    echo "== operations session in $REPO ($(git branch --show-current) at $(git log --oneline -1 | cut -c1-60))"
+    if ! systemctl --user is-active --quiet ling-swe-night1 && ! systemctl --user is-active --quiet ling-swe-night2; then
+      echo "   No night unit is running. After a reboot: 'ling-admin server start' first, then re-run the night's"
+      echo "   start command (it resumes the run by name); the watcher cron must be re-armed in the session."
+    fi
+    ;;
+  2|product)
+    if [ ! -d "$PRODUCT_WT" ]; then
+      git -C "$REPO" fetch -q origin
+      git -C "$REPO" worktree add -b work/product "$PRODUCT_WT" origin/main
+    fi
+    cd "$PRODUCT_WT"
+    echo "== product session in $PRODUCT_WT ($(git branch --show-current) at $(git log --oneline -1 | cut -c1-60))"
+    echo "   tests: ../../../.venv/bin/python -m pytest tests/ -q   (the venv lives in the main checkout)"
+    ;;
+  3|engine|ling-engine)
+    cd "$ENGINE"
+    if [ -z "$(git status --porcelain)" ]; then git pull -q --ff-only || true; fi
+    echo "== ling-engine session in $ENGINE at $(git log --oneline -1 | cut -c1-60)"
+    echo "   builds, tests and measurements only on second-puffin (ssh second-puffin)"
+    ;;
+  4|crew|mighty-crew)
+    cd "$CREW"
+    if [ -z "$(git status --porcelain)" ]; then git pull -q --ff-only || true; fi
+    echo "== crew session in $CREW at $(git log --oneline -1 | cut -c1-60)"
+    echo "   the Mighty Crew product: specs/DREAMFERENCE_MIGHTY_CREW.md, prototype in bin/"
+    ;;
+  *)
+    sed -n 2,8p "$0"; exit 2 ;;
+esac
+# The shared status board, so every stream starts knowing what the others did.
+command -v session-note >/dev/null && { echo "-- status board (docs/dev/sessions.md), newest last:"; session-note 2>/dev/null | tail -n 6; }
+# A directory with no conversation yet starts a fresh one (claude --continue refuses otherwise).
+project_dir=$HOME/.claude/projects/$(pwd | sed 's|/|-|g')
+if [ -n "$mode" ] && ! ls "$project_dir"/*.jsonl >/dev/null 2>&1; then
+  echo "   (no conversation to continue here yet: starting a fresh one)"
+  mode=""
+fi
+exec claude $mode

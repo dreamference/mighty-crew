@@ -1,0 +1,37 @@
+#!/bin/bash
+# Append one dated status line to docs/dev/sessions.md of dreamference/mightling (origin main) from any
+# work stream, through a small clone of its own, so no session's working tree is touched:
+#   session-note "night 1 finished: 31/50 default, 33/50 tests-v2"
+#   session-note            # prints the current board
+# The stream name comes from the directory you run it in (main checkout = operations,
+# .claude/worktrees/product = product, ling-engine = engine, mighty-crew = crew); STREAM=<name> overrides.
+set -eu
+CLONE=$HOME/.cache/mightling-sessions
+REMOTE=https://github.com/dreamference/mightling.git
+FILE=docs/dev/sessions.md
+here=$(pwd -P)
+case "$here" in
+  */dgxcoder/.claude/worktrees/product*) stream=product ;;
+  */ling-engine*) stream=engine ;;
+  */mighty-crew*) stream=crew ;;
+  */dgxcoder*) stream=operations ;;
+  *) stream=${STREAM:-unknown} ;;
+esac
+stream=${STREAM:-$stream}
+if [ ! -d "$CLONE/.git" ]; then
+  git clone -q --filter=blob:none --no-checkout "$REMOTE" "$CLONE"
+  git -C "$CLONE" sparse-checkout set --no-cone "$FILE"
+  git -C "$CLONE" checkout -q main
+fi
+git -C "$CLONE" fetch -q origin && git -C "$CLONE" reset -q --hard origin/main
+if [ $# -eq 0 ]; then
+  sed -n '/^## Status/,$p' "$CLONE/$FILE"; exit 0
+fi
+line="- $(date '+%Y-%m-%d %H:%M') $stream: $*"
+echo "$line" >> "$CLONE/$FILE"
+git -C "$CLONE" -c user.name=dgxcoder -c user.email=dgxcoder@dreamference.ai commit -q -m "sessions: $stream" -- "$FILE"
+for attempt in 1 2 3; do
+  git -C "$CLONE" push -q origin HEAD:main && { echo "$line"; exit 0; }
+  git -C "$CLONE" fetch -q origin && git -C "$CLONE" rebase -q origin/main
+done
+echo "could not push the note; try again" >&2; exit 1

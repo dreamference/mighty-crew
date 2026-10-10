@@ -1,0 +1,11 @@
+#!/bin/bash
+# SessionStart hook (user level): in one of the three work-stream directories, print the shared status
+# board so the session starts knowing what the other streams did. Silent anywhere else or offline.
+case "$(pwd -P)" in
+  $HOME/PycharmProjects/dgxcoder|$HOME/PycharmProjects/dgxcoder/.claude/worktrees/product|$HOME/PycharmProjects/ling-engine|$HOME/PycharmProjects/mighty-crew) ;;
+  *) exit 0 ;;
+esac
+board=$(timeout 20 $HOME/.local/bin/session-note 2>/dev/null) || exit 0
+[ -n "$board" ] || exit 0
+echo "## Shared status board (docs/dev/sessions.md on origin/main; append with session-note \"<what changed>\" at each hand-off)"
+echo "$board" | tail -n 12

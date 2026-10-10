@@ -26,7 +26,6 @@ jobs:
           - { os: macos-latest,     target: aarch64-apple-darwin,       archive: tar }
           - { os: macos-15-intel,   target: x86_64-apple-darwin,        archive: tar }
           - { os: windows-latest,   target: x86_64-pc-windows-msvc,     archive: zip }
-    if: github.event.inputs.only == '' || github.event.inputs.only == matrix.target
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,12 +34,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: musl tools
-        if: contains(matrix.target, 'musl')
+        if: contains(matrix.target, 'musl') && (github.event.inputs.only == '' || github.event.inputs.only == matrix.target)
         run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
       - name: build
+        if: github.event.inputs.only == '' || github.event.inputs.only == matrix.target
         run: cargo build --release --locked --target ${{ matrix.target }}
       - name: package (tar)
-        if: matrix.archive == 'tar'
+        if: matrix.archive == 'tar' && (github.event.inputs.only == '' || github.event.inputs.only == matrix.target)
         shell: bash
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
@@ -51,7 +51,7 @@ jobs:
           (cd dist && shasum -a 256 $NAME.tar.gz > $NAME.tar.gz.sha256)
           echo "ASSET=dist/$NAME.tar.gz" >> $GITHUB_ENV
       - name: package (zip)
-        if: matrix.archive == 'zip'
+        if: matrix.archive == 'zip' && (github.event.inputs.only == '' || github.event.inputs.only == matrix.target)
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
@@ -63,6 +63,7 @@ jobs:
           "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
           "ASSET=dist/$name.zip" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
       - name: upload to the release
+        if: github.event.inputs.only == '' || github.event.inputs.only == matrix.target
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

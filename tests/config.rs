@@ -139,3 +139,60 @@ fn a_role_may_set_its_own_command_and_mode() {
             "role engine runs in permission mode acceptEdits while the crew runs in bypassPermissions",
         ));
 }
+
+#[test]
+fn an_undeclared_worktree_under_a_tree_is_not_guessed() {
+    let e = Env::new();
+    let stray = e.ops.join(".claude/worktrees/apply-patch");
+    git(
+        &e.ops,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "work/apply-patch",
+            stray.to_str().unwrap(),
+        ],
+    );
+    e.crew()
+        .current_dir(&stray)
+        .args(["note", "from a stray worktree"])
+        .assert()
+        .failure()
+        .stderr(
+            predicates::str::contains("is a checkout of its own under the operations tree")
+                .and(predicates::str::contains("add it to `trees` of a role")),
+        );
+    // A plain subdirectory of the tree still belongs to it; the declared nested worktree to its own role.
+    fs::create_dir_all(e.ops.join("docs")).unwrap();
+    e.crew()
+        .current_dir(e.ops.join("docs"))
+        .args(["note", "from docs"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(" operations: from docs"));
+    e.crew()
+        .current_dir(&e.product)
+        .args(["note", "from product"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(" product: from product"));
+    // Declared as a second tree of product, it is product's.
+    e.write_config(&e.default_config().replace(
+        "branch = \"work/product\"",
+        &format!("branch = \"work/product\"\ntrees = [{:?}]", stray.to_str().unwrap()),
+    ));
+    e.crew()
+        .current_dir(&stray)
+        .args(["note", "declared now"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(" product: declared now"));
+    // Doctor names a session in such a checkout.
+    e.sessions(&session_json(&stray, "product-x", "busy"));
+    e.write_config(&e.default_config());
+    e.crew().arg("doctor").assert().stdout(predicates::str::contains(
+        "session product-x runs where no role is declared",
+    ));
+}

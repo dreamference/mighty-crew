@@ -389,6 +389,7 @@ mod tests {
             name: "ops".into(),
             tree_text: "~/x".into(),
             tree: PathBuf::from("/x"),
+            trees: vec![PathBuf::from("/x")],
             worktree_of: None,
             branch: None,
             owns: "a | b".into(),

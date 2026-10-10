@@ -117,6 +117,16 @@ pub fn run() -> Result<i32> {
                 }
                 for s in sessions.iter().filter(|s| s.kind == "interactive" && !s.is_relay()) {
                     let dir = std::path::Path::new(&s.cwd);
+                    if let Err(why) = cfg.lookup(dir) {
+                        r.fix(
+                            &format!(
+                                "session {} runs where no role is declared",
+                                s.name.as_deref().unwrap_or("unnamed")
+                            ),
+                            &why,
+                        );
+                        continue;
+                    }
                     if cfg.role_for(dir).is_none() {
                         r.fix(
                             &format!(

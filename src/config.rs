@@ -78,6 +78,9 @@ fn default_msg_model() -> String {
 #[serde(deny_unknown_fields)]
 struct RawRole {
     tree: String,
+    /// Further trees of the same role (a second worktree, say); `tree` stays the one `start` uses.
+    #[serde(default)]
+    trees: Vec<String>,
     worktree_of: Option<String>,
     branch: Option<String>,
     #[serde(default)]
@@ -109,6 +112,8 @@ pub struct Role {
     pub tree_text: String,
     /// The tree expanded and normalized, for comparing.
     pub tree: PathBuf,
+    /// Every tree of the role, the main one first, expanded and normalized.
+    pub trees: Vec<PathBuf>,
     pub worktree_of: Option<PathBuf>,
     pub branch: Option<String>,
     pub owns: String,
@@ -163,6 +168,10 @@ impl Config {
                 .try_into()
                 .with_context(|| format!("{}: [roles.{name}] is not valid", util::display_path(path)))?;
             let tree = util::normalize(&util::expand_tilde(&r.tree)?);
+            let mut trees = vec![tree.clone()];
+            for t in &r.trees {
+                trees.push(util::normalize(&util::expand_tilde(t)?));
+            }
             let worktree_of = match r.worktree_of {
                 Some(w) => Some(util::normalize(&util::expand_tilde(&w)?)),
                 None => None,
@@ -170,6 +179,7 @@ impl Config {
             roles.push(Role {
                 name,
                 tree_text: r.tree,
+                trees,
                 tree,
                 worktree_of,
                 branch: r.branch,
@@ -195,7 +205,7 @@ impl Config {
         }
         for i in 0..roles.len() {
             for j in i + 1..roles.len() {
-                if roles[i].tree == roles[j].tree {
+                if roles[i].trees.iter().any(|t| roles[j].trees.contains(t)) {
                     bail!(
                         "roles {} and {} share the working tree {}; give each role a tree of its own",
                         roles[i].name,
@@ -233,11 +243,39 @@ impl Config {
 
     /// The role whose tree contains `dir`; the deepest tree wins when trees nest.
     pub fn role_for(&self, dir: &Path) -> Option<&Role> {
+        self.lookup(dir).ok().flatten()
+    }
+
+    /// The role whose declared tree is the checkout `dir` belongs to. The deepest declared tree
+    /// containing `dir` wins; but when `dir` is inside a git checkout of its own (an undeclared
+    /// worktree under a role's tree, say), no role is guessed: the error names the checkout.
+    pub fn lookup(&self, dir: &Path) -> std::result::Result<Option<&Role>, String> {
         let dir = util::normalize(dir);
-        self.roles
-            .iter()
-            .filter(|r| dir.starts_with(&r.tree))
-            .max_by_key(|r| r.tree.as_os_str().len())
+        let mut best: Option<(&Role, &PathBuf)> = None;
+        for r in &self.roles {
+            for t in &r.trees {
+                if dir.starts_with(t)
+                    && best
+                        .map(|(_, b)| t.as_os_str().len() > b.as_os_str().len())
+                        .unwrap_or(true)
+                {
+                    best = Some((r, t));
+                }
+            }
+        }
+        let Some((role, tree)) = best else { return Ok(None) };
+        if let Ok(top) = util::git(&dir, &["rev-parse", "--show-toplevel"]) {
+            let top = util::normalize(Path::new(&top));
+            if top != *tree && top.starts_with(tree) {
+                return Err(format!(
+                    "{} is a checkout of its own under the {} tree {}, not a declared tree; add it to `trees` of a role, or pass --as <role>",
+                    util::display_path(&top),
+                    role.name,
+                    role.tree_text
+                ));
+            }
+        }
+        Ok(Some(role))
     }
 
     /// The roles whose permission mode differs from the crew's: the crew is meant to run in one class.
@@ -310,6 +348,19 @@ mod tests {
         assert_eq!(c.role_names(), vec!["a", "b"]);
         assert!(c.off_class_roles().is_empty());
         assert!(c.chat.identity.is_none());
+    }
+
+    #[test]
+    fn several_trees_per_role() {
+        let t = MIN.to_string() + "[roles.c]\ntree = \"/c\"\ntrees = [\"/c2\", \"/x/a/b\"]\n";
+        assert!(Config::parse(&t, Path::new("/cfg"))
+            .unwrap_err()
+            .to_string()
+            .contains("share the working tree"));
+        let t = MIN.to_string() + "[roles.c]\ntree = \"/c\"\ntrees = [\"/c2\"]\n";
+        let cfg = Config::parse(&t, Path::new("/cfg")).unwrap();
+        assert_eq!(cfg.role_for(Path::new("/c2/deep")).unwrap().name, "c");
+        assert_eq!(cfg.roles[2].trees.len(), 2);
     }
 
     #[test]

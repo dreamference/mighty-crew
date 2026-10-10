@@ -15,9 +15,13 @@ PRODUCT_WT=$REPO/.claude/worktrees/product
 mode=--continue
 for a in "$@"; do [ "$a" = --new ] && mode=""; done
 which=${1:-}
+# Every role runs in one permission class with prompts bypassed (the owner's decision, 2026-10-10), so a
+# message from one session reaches another without being held; and each session carries its role's name.
+PERMISSION="--permission-mode bypassPermissions"
 
 case "$which" in
   1|ops|operations)
+    role=operations
     cd "$REPO"
     git fetch -q origin || true
     echo "== operations session in $REPO ($(git branch --show-current) at $(git log --oneline -1 | cut -c1-60))"
@@ -27,6 +31,7 @@ case "$which" in
     fi
     ;;
   2|product)
+    role=product
     if [ ! -d "$PRODUCT_WT" ]; then
       git -C "$REPO" fetch -q origin
       git -C "$REPO" worktree add -b work/product "$PRODUCT_WT" origin/main
@@ -36,16 +41,18 @@ case "$which" in
     echo "   tests: ../../../.venv/bin/python -m pytest tests/ -q   (the venv lives in the main checkout)"
     ;;
   3|engine|ling-engine)
+    role=engine
     cd "$ENGINE"
     if [ -z "$(git status --porcelain)" ]; then git pull -q --ff-only || true; fi
     echo "== ling-engine session in $ENGINE at $(git log --oneline -1 | cut -c1-60)"
     echo "   builds, tests and measurements only on second-puffin (ssh second-puffin)"
     ;;
   4|crew|mighty-crew)
+    role=crew
     cd "$CREW"
     if [ -z "$(git status --porcelain)" ]; then git pull -q --ff-only || true; fi
     echo "== crew session in $CREW at $(git log --oneline -1 | cut -c1-60)"
-    echo "   the Mighty Crew product: specs/DREAMFERENCE_MIGHTY_CREW.md, prototype in bin/"
+    echo "   the Mighty Crew product: specs/DREAMFERENCE_MIGHTY_CREW.md, the prototype in prototype/, the binary in src/"
     ;;
   *)
     sed -n 2,8p "$0"; exit 2 ;;
@@ -58,4 +65,4 @@ if [ -n "$mode" ] && ! ls "$project_dir"/*.jsonl >/dev/null 2>&1; then
   echo "   (no conversation to continue here yet: starting a fresh one)"
   mode=""
 fi
-exec claude $mode
+exec claude $mode $PERMISSION --name "$role"

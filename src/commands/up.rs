@@ -4,7 +4,6 @@ use crate::agent;
 use crate::config::{Config, Role};
 use crate::util;
 use anyhow::{bail, Result};
-use std::os::unix::process::CommandExt;
 use std::process::Command;
 
 pub fn run(fresh: bool) -> Result<i32> {
@@ -79,8 +78,7 @@ pub fn run(fresh: bool) -> Result<i32> {
         } else {
             c.args(["attach", "-t", &session]);
         }
-        let err = c.exec();
-        bail!("cannot run tmux: {err}");
+        return attach(c);
     } else if std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some() {
         for r in &to_open {
             match super::open::run(&r.name) {
@@ -105,5 +103,20 @@ fn shell_quote(s: &str) -> String {
         s.to_string()
     } else {
         format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
+/// Replace this process with the tmux client on Unix; elsewhere run it and leave with its code.
+fn attach(mut c: Command) -> Result<i32> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let err = c.exec();
+        bail!("cannot run tmux: {err}");
+    }
+    #[cfg(not(unix))]
+    {
+        let status = c.status().map_err(|e| anyhow::anyhow!("cannot run tmux: {e}"))?;
+        Ok(status.code().unwrap_or(1))
     }
 }

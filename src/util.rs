@@ -101,6 +101,11 @@ pub fn display_path(p: &Path) -> String {
 
 /// The first directory on `PATH` holding an executable of that name, or the path itself.
 pub fn which(cmd: &str) -> Option<PathBuf> {
+    which_in(cmd, std::env::var_os("PATH"))
+}
+
+/// `which` against a given `PATH` value, so tests need not touch the process environment.
+pub fn which_in(cmd: &str, path: Option<std::ffi::OsString>) -> Option<PathBuf> {
     #[cfg(unix)]
     fn executable(p: &Path) -> bool {
         use std::os::unix::fs::PermissionsExt;
@@ -129,7 +134,7 @@ pub fn which(cmd: &str) -> Option<PathBuf> {
             .map(|x| PathBuf::from(format!("{}{x}", p.display())))
             .find(|p| executable(p));
     }
-    let path = std::env::var_os("PATH")?;
+    let path = path?;
     std::env::split_paths(&path)
         .flat_map(|d| suffixes.iter().map(move |x| d.join(format!("{cmd}{x}"))))
         .find(|p| executable(p))
@@ -291,15 +296,12 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::write(dir.join("plain"), "").unwrap();
-        let saved = std::env::var_os("PATH");
-        std::env::set_var("PATH", &dir);
-        assert_eq!(which("thing"), Some(exe.clone()));
-        assert_eq!(which("plain"), None);
-        assert_eq!(which("missing"), None);
-        assert_eq!(which(exe.to_str().unwrap()), Some(exe.clone()));
-        if let Some(p) = saved {
-            std::env::set_var("PATH", p);
-        }
+        let path = Some(dir.clone().into_os_string());
+        assert_eq!(which_in("thing", path.clone()), Some(exe.clone()));
+        assert_eq!(which_in("plain", path.clone()), None);
+        assert_eq!(which_in("missing", path.clone()), None);
+        assert_eq!(which_in("thing", None), None);
+        assert_eq!(which_in(exe.to_str().unwrap(), None), Some(exe.clone()));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

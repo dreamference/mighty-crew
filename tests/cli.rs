@@ -478,6 +478,7 @@ fn doctor_reports_each_problem_with_its_fix() {
     e.write_config(&cfg);
     fs::write(e.settings(), "{\"hooks\":{\"SessionStart\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"/elsewhere/crew hook\"}]}]}}").unwrap();
     e.sessions(&session_json(&e.root, "stray-1a", "idle"));
+    fs::remove_file(e.home.join(".claude/skills/crew/SKILL.md")).unwrap();
     let out = e.crew().arg("doctor").assert().code(1).get_output().stdout.clone();
     let out = String::from_utf8(out).unwrap();
     for needle in [
